@@ -20,6 +20,7 @@ package hivemall.tools.json;
 
 import hivemall.utils.hadoop.HiveUtils;
 import hivemall.utils.hadoop.JsonSerdeUtils;
+import hivemall.utils.lang.ArrayUtils;
 import hivemall.utils.lang.ExceptionUtils;
 import hivemall.utils.lang.StringUtils;
 
@@ -43,9 +44,49 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.apache.hadoop.io.Text;
 import org.apache.hive.hcatalog.data.HCatRecordObjectInspectorFactory;
 
+// @formatter:off
 @Description(name = "from_json",
         value = "_FUNC_(string jsonString, const string returnTypes [, const array<string>|const string columnNames])"
-                + " - Return Hive object.")
+                + " - Return Hive object.",
+        extended = "SELECT\n" + 
+                "  from_json(to_json(map('one',1,'two',2)), 'map<string,int>'),\n" +
+                "  from_json(\n" + 
+                "    '{ \"person\" : { \"name\" : \"makoto\" , \"age\" : 37 } }',\n" + 
+                "    'struct<name:string,age:int>', \n" + 
+                "    array('person')\n" + 
+                "  ),\n" + 
+                "  from_json(\n" + 
+                "    '[0.1,1.1,2.2]',\n" + 
+                "    'array<double>'\n" + 
+                "  ),\n" + 
+                "  from_json(to_json(\n" + 
+                "    ARRAY(\n" + 
+                "      NAMED_STRUCT(\"country\", \"japan\", \"city\", \"tokyo\"), \n" + 
+                "      NAMED_STRUCT(\"country\", \"japan\", \"city\", \"osaka\")\n" + 
+                "    )\n" + 
+                "  ),'array<struct<country:string,city:string>>'),\n" + 
+                "  from_json(to_json(\n" + 
+                "    ARRAY(\n" + 
+                "      NAMED_STRUCT(\"country\", \"japan\", \"city\", \"tokyo\"), \n" + 
+                "      NAMED_STRUCT(\"country\", \"japan\", \"city\", \"osaka\")\n" + 
+                "    ),\n" + 
+                "    array('city')\n" + 
+                "  ), 'array<struct<country:string,city:string>>'),\n" + 
+                "  from_json(to_json(\n" + 
+                "    ARRAY(\n" + 
+                "      NAMED_STRUCT(\"country\", \"japan\", \"city\", \"tokyo\"), \n" + 
+                "      NAMED_STRUCT(\"country\", \"japan\", \"city\", \"osaka\")\n" + 
+                "    )\n" + 
+                "  ),'array<struct<city:string>>');\n"
+                + "```\n\n" +
+                "```\n" +
+                " {\"one\":1,\"two\":2}\n" +
+                " {\"name\":\"makoto\",\"age\":37}\n" + 
+                " [0.1,1.1,2.2]\n" + 
+                " [{\"country\":\"japan\",\"city\":\"tokyo\"},{\"country\":\"japan\",\"city\":\"osaka\"}]\n" + 
+                " [{\"country\":\"japan\",\"city\":\"tokyo\"},{\"country\":\"japan\",\"city\":\"osaka\"}]\n" + 
+                " [{\"city\":\"tokyo\"},{\"city\":\"osaka\"}]")
+//@formatter:on
 @UDFType(deterministic = true, stateful = false)
 public final class FromJsonUDF extends GenericUDF {
 
@@ -71,9 +112,10 @@ public final class FromJsonUDF extends GenericUDF {
             final ObjectInspector argOI2 = argOIs[2];
             if (HiveUtils.isConstString(argOI2)) {
                 String names = HiveUtils.getConstString(argOI2);
-                this.columnNames = Arrays.asList(names.split(","));
+                this.columnNames = ArrayUtils.asKryoSerializableList(names.split(","));
             } else if (HiveUtils.isConstStringListOI(argOI2)) {
-                this.columnNames = Arrays.asList(HiveUtils.getConstStringArray(argOI2));
+                this.columnNames =
+                        ArrayUtils.asKryoSerializableList(HiveUtils.getConstStringArray(argOI2));
             } else {
                 throw new UDFArgumentException("Expected `const array<string>` or `const string`"
                         + " but got an unexpected OI type for the third argument: " + argOI2);
@@ -131,7 +173,11 @@ public final class FromJsonUDF extends GenericUDF {
 
         final Object result;
         try {
-            result = JsonSerdeUtils.deserialize(jsonString, columnNames, columnTypes);
+            if (columnNames == null && columnTypes != null && columnTypes.size() == 1) {
+                result = JsonSerdeUtils.deserialize(jsonString, columnTypes.get(0));
+            } else {
+                result = JsonSerdeUtils.deserialize(jsonString, columnNames, columnTypes);
+            }
         } catch (Throwable e) {
             throw new HiveException("Failed to deserialize Json: \n" + jsonString.toString() + '\n'
                     + ExceptionUtils.prettyPrintStackTrace(e),

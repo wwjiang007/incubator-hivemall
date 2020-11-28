@@ -16,18 +16,17 @@
   specific language governing permissions and limitations
   under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<groupId>org.apache.hivemall</groupId>
 	<artifactId>hivemall</artifactId>
-	<version>0.5.1-incubating-SNAPSHOT</version>
+	<version>0.6.2-incubating-SNAPSHOT</version>
 
 	<parent>
-	  <groupId>org.apache</groupId>
-	  <artifactId>apache</artifactId>
-	  <version>18</version>
+		<groupId>org.apache</groupId>
+		<artifactId>apache</artifactId>
+		<version>21</version>
 	</parent>
 
 	<name>Apache Hivemall</name>
@@ -48,10 +47,10 @@
 	</licenses>
 
 	<scm>
-		<url>https://git-wip-us.apache.org/repos/asf/incubator-hivemall.git</url>
-		<connection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-hivemall.git</connection>
-		<developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-hivemall.git</developerConnection>
-		<tag>v0.5.0-rc1</tag>
+		<url>https://gitbox.apache.org/repos/asf/incubator-hivemall.git</url>
+		<connection>scm:git:https://gitbox.apache.org/repos/asf/incubator-hivemall.git</connection>
+		<developerConnection>scm:git:https://gitbox.apache.org/repos/asf/incubator-hivemall.git</developerConnection>
+		<tag>v0.5.2</tag>
 	</scm>
 
 	<mailingLists>
@@ -196,6 +195,18 @@
 			</roles>
 			<timezone>+9</timezone>
 		</developer>
+		<developer>
+			<id>jbanks</id>
+			<name>Jerome Banks</name>
+			<email>jbanks[at]apache.org</email>
+			<url>https://github.com/jeromebanks/</url>
+			<organization>Jumpshot Inc.</organization>
+			<organizationUrl>https://www.jumpshot.com/</organizationUrl>
+			<roles>
+				<role>Committer</role>
+			</roles>
+			<timezone>-8</timezone>
+		</developer>
 		<!-- Project mentors -->
 		<developer>
 			<id>rvs</id>
@@ -206,17 +217,6 @@
 			<organizationUrl>https://www.zededa.com/</organizationUrl>
 			<roles>
 				<role>Champion</role>
-			</roles>
-		</developer>
-		<developer>
-			<id>rxin</id>
-			<name>Reynold Xin</name>
-			<email>rxin[at]databricks.com</email>
-			<url>http://rxin.org</url>
-			<organization>Databricks Inc.</organization>
-			<organizationUrl>https://databricks.com/</organizationUrl>
-			<roles>
-				<role>Mentor</role>
 			</roles>
 		</developer>
 		<developer>
@@ -231,14 +231,14 @@
 			</roles>
 		</developer>
 		<developer>
-			<id>weimer</id>
-			<name>Markus Weimer</name>
-			<email>markus[at]weimo.de</email>
-			<url>http://www.markusweimer.com/</url>
-			<organization>Microsoft Corporation</organization>
-			<organizationUrl>https://www.microsoft.com/</organizationUrl>
+			<id>koji</id>
+			<name>Koji Sekiguchi</name>
+			<email>koji[at]apache.org</email>
+			<url>https://www.linkedin.com/in/koji-sekiguchi-75010350/</url>
+			<organization>RONDHUIT Co, Ltd.</organization>
+			<organizationUrl>https://www.rondhuit.com/</organizationUrl>
 			<roles>
-				<role>Past Mentor (resigned on Mar 1, 2018)</role>
+				<role>Mentor</role>
 			</roles>
 		</developer>
 	</developers>
@@ -250,7 +250,6 @@
 		<module>nlp</module>
 		<module>xgboost</module>
 		<module>mixserv</module>
-		<module>spark</module>
 		<module>dist</module>
 		<module>tools</module>
 	</modules>
@@ -272,7 +271,7 @@
 		<dependency.locations.enabled>false</dependency.locations.enabled>
 		<maven-enforcer.requireMavenVersion>[3.3.1,)</maven-enforcer.requireMavenVersion>
 		<surefire.version>2.19.1</surefire.version>
-		<xgboost.version>0.7-rc2</xgboost.version>
+		<netty.version>4.1.42.Final</netty.version>
 	</properties>
 
 	<distributionManagement>
@@ -302,6 +301,10 @@
 			<releases>
 				<enabled>true</enabled>
 			</releases>
+		</repository>
+		<repository>
+			<id>jcenter</id>
+			<url>https://jcenter.bintray.com/</url>
 		</repository>
 	</repositories>
 
@@ -436,6 +439,37 @@
 		</dependencies>
 	</dependencyManagement>
 
+	<reporting>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-project-info-reports-plugin</artifactId>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>ci-management</report>
+							<!-- <report>dependencies</report> -->
+							<report>dependency-convergence</report>
+							<report>dependency-info</report>
+							<!-- <report>dependency-management</report> -->
+							<report>distribution-management</report>
+							<report>index</report>
+							<report>issue-management</report>
+							<report>licenses</report>
+							<report>mailing-lists</report>
+							<report>modules</report>
+							<!-- <report>plugin-management</report> -->
+							<report>plugins</report>
+							<report>scm</report>
+							<report>summary</report>
+							<report>team</report>
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+		</plugins>
+	</reporting>
+
 	<build>
 		<directory>target</directory>
 		<outputDirectory>target/classes</outputDirectory>
@@ -541,6 +575,7 @@
 						<docencoding>UTF-8</docencoding>
 						<show>protected</show>
 						<linksource>true</linksource>
+						<source>7</source>
 					</configuration>
 					<executions>
 						<execution>
@@ -552,6 +587,8 @@
 								<!-- workaround for Java 8 -->
 								<!-- see http://stackoverflow.com/questions/15886209/maven-is-not-working-in-java-8-when-javadoc-tags-are-incomplete -->
 								<additionalparam>${javadoc.opts}</additionalparam>
+								<!-- see https://stackoverflow.com/a/16743137 -->
+								<doclint>none</doclint>
 							</configuration>
 						</execution>
 					</executions>
@@ -618,22 +655,30 @@
 								<requireEnvironmentVariable>
 									<variableName>JAVA_HOME</variableName>
 								</requireEnvironmentVariable>
+								<bannedDependencies>
+									<excludes>
+										<!-- see STORM-3114 -->
+										<exclude>jdk.tools:jdk.tools:*</exclude>
+									</excludes>
+								</bannedDependencies>
 							</rules>
 							<fail>true</fail>
 						</configuration>
 					</execution>
 					<execution>
-						<id>enforce-JAVA8_HOME-is-set</id>
+						<id>enforce-java-8</id>
 						<goals>
 							<goal>enforce</goal>
 						</goals>
 						<configuration>
 							<rules>
-								<requireEnvironmentVariable>
-									<variableName>JAVA8_HOME</variableName>
-								</requireEnvironmentVariable>
+								<requireJavaVersion>
+									<version>[1.8,)</version>
+									<message>
+										Hivemall requires JDK version 1.8 or higher.
+									</message>
+								</requireJavaVersion>
 							</rules>
-							<fail>true</fail>
 						</configuration>
 					</execution>
 					<execution>
@@ -648,6 +693,57 @@
 								</requireMavenVersion>
 							</rules>
 						</configuration>
+					</execution>
+					<!-- Check Java class file compatibility to Java 7/8 -->
+					<execution>
+						<id>enforce-bytecode-version</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<enforceBytecodeVersion>
+									<maxJdkVersion>${maven.compiler.target}</maxJdkVersion>
+									<excludes>
+										<exclude>jdk.tools:jdk.tools</exclude>
+										<exclude>org.mindrot:jbcrypt</exclude>
+									</excludes>
+								</enforceBytecodeVersion>
+							</rules>
+							<fail>true</fail>
+						</configuration>
+					</execution>
+				</executions>
+				<dependencies>
+					<dependency>
+						<groupId>org.codehaus.mojo</groupId>
+						<artifactId>extra-enforcer-rules</artifactId>
+						<version>1.0-beta-9</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+			<!-- check Java API compatibility to Java 7 -->
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>animal-sniffer-maven-plugin</artifactId>
+				<version>1.14</version>
+				<configuration>
+					<signature>
+						<groupId>org.codehaus.mojo.signature</groupId>
+						<artifactId>java17</artifactId>
+						<version>1.0</version>
+					</signature>
+					<ignores>
+						<ignore>sun.misc.Unsafe</ignore>
+					</ignores>
+				</configuration>
+				<executions>
+					<execution>
+						<id>ensure-java-1.7-class-library</id>
+						<phase>verify</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
 					</execution>
 				</executions>
 			</plugin>

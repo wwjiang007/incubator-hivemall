@@ -22,7 +22,7 @@
 	<parent>
 		<groupId>org.apache.hivemall</groupId>
 		<artifactId>hivemall</artifactId>
-		<version>0.5.1-incubating-SNAPSHOT</version>
+		<version>0.6.2-incubating-SNAPSHOT</version>
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
@@ -40,11 +40,23 @@
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-common</artifactId>
 			<scope>provided</scope>
+			<exclusions>
+				<exclusion>
+					<artifactId>jdk.tools</artifactId>
+					<groupId>jdk.tools</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hadoop</groupId>
 			<artifactId>hadoop-mapreduce-client-core</artifactId>
 			<scope>provided</scope>
+			<exclusions>
+				<exclusion>
+					<artifactId>jdk.tools</artifactId>
+					<groupId>jdk.tools</groupId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.hive</groupId>
@@ -92,10 +104,10 @@
 			<scope>compile</scope>
 		</dependency>
 		<dependency>
-			<groupId>io.netty</groupId>
 			<!-- required for mixing -->
+			<groupId>io.netty</groupId>
 			<artifactId>netty-all</artifactId>
-			<version>4.0.23.Final</version>
+			<version>${netty.version}</version>
 			<scope>compile</scope>
 		</dependency>
 

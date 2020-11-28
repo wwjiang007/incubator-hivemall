@@ -18,6 +18,8 @@
  */
 package hivemall.utils.math;
 
+import static java.lang.Math.abs;
+
 import java.util.Random;
 
 import javax.annotation.Nonnegative;
@@ -36,6 +38,15 @@ public final class MathUtils {
      */
     public static double sec(final double d) {
         return 1.d / Math.cos(d);
+    }
+
+    public static int divideAndRoundUp(final int num, final int divisor) {
+        if (divisor == 0) {
+            throw new ArithmeticException("/ by zero");
+        }
+        final int sign = (num > 0 ? 1 : -1) * (divisor > 0 ? 1 : -1);
+        final int div = abs(divisor);
+        return sign * (abs(num) + div - 1) / div;
     }
 
     /**
@@ -229,6 +240,10 @@ public final class MathUtils {
         return v < 0.f ? -1 : 1;
     }
 
+    public static double square(final double d) {
+        return d * d;
+    }
+
     public static double log(final double n, final int base) {
         return Math.log(n) / Math.log(base);
     }
@@ -319,6 +334,15 @@ public final class MathUtils {
         final int[] perm = new int[size];
         for (int i = 0; i < size; i++) {
             perm[i] = i;
+        }
+        return perm;
+    }
+
+    @Nonnull
+    public static int[] permutation(@Nonnegative final int start, @Nonnegative final int size) {
+        final int[] perm = new int[size];
+        for (int i = 0; i < size; i++) {
+            perm[i] = start + i;
         }
         return perm;
     }
@@ -427,6 +451,14 @@ public final class MathUtils {
             arr[i] *= multiplier;
         }
         return arr;
+    }
+
+    public static float clip(final float v, final float min, final float max) {
+        return Math.max(Math.min(v, max), min);
+    }
+
+    public static double clip(final double v, final double min, final double max) {
+        return Math.max(Math.min(v, max), min);
     }
 
 }

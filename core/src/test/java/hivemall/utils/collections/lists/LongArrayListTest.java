@@ -18,7 +18,6 @@
  */
 package hivemall.utils.collections.lists;
 
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -38,6 +37,14 @@ public class LongArrayListTest {
         list.add(0).add(1);
         Assert.assertEquals(3, list.size());
         Assert.assertArrayEquals(new long[] {2, 0, 1}, list.toArray());
+    }
+
+    @Test
+    public void testExpandZeroSizedList() {
+        LongArrayList list = new LongArrayList(0);
+        list.add(100);
+        Assert.assertEquals(1, list.size());
+        Assert.assertEquals(100, list.get(0));
     }
 
 }

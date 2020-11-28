@@ -35,8 +35,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 @Description(name = "try_cast",
         value = "_FUNC_(ANY src, const string typeName)"
                 + " - Explicitly cast a value as a type. Returns null if cast fails.",
-        extended = "Usage: select try_cast(array(1.0,2.0,3.0), 'array<string>')\n"
-                + "     select try_cast(map('A',10,'B',20,'C',30), 'map<string,double>')")
+        extended = "SELECT try_cast(array(1.0,2.0,3.0), 'array<string>')\n"
+                + "SELECT try_cast(map('A',10,'B',20,'C',30), 'map<string,double>')")
 @UDFType(deterministic = true, stateful = false)
 public final class TryCastUDF extends GenericUDF {
 
@@ -51,7 +51,7 @@ public final class TryCastUDF extends GenericUDF {
         }
 
         this.inputOI = argOIs[0];
-        String typeString = HiveUtils.getConstString(argOIs[1]);
+        String typeString = HiveUtils.getConstString(argOIs, 1);
 
         ObjectInspector outputOI = HiveUtils.getObjectInspector(typeString, true);
         this.converter = ObjectInspectorConverters.getConverter(inputOI, outputOI);

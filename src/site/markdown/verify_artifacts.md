@@ -23,7 +23,7 @@
 
 ## Install required softwares 
 
-GPG and Maven, JDK 7 is mandatory for verification.
+GPG and Maven, JDK 8 is mandatory for verification.
 
 ```sh
 brew install gpg gpg-agent pinentry-mac
@@ -52,31 +52,20 @@ wget -e robots=off --no-check-certificate \
  https://dist.apache.org/repos/dist/dev/incubator/hivemall/${VERSION}-incubating-rc${RC_NUMBER}/
 ```
 
-# 3. Verify SHA1, MD5, and GPG signatures.
+# 3. Verify SHA512, and GPG signatures.
 
 ```sh
 cd ${VERSION}-incubating-rc${RC_NUMBER}/
 
-for f in `find . -type f -iname '*.sha1'`; do
+for f in `find . -type f -iname '*.sha512'`; do
   echo -n "Verifying ${f%.*} ... "
-  sha1sum ${f%.*} | cut -f1 -d' ' | diff -Bw - ${f}
+  shasum -a 512 ${f%.*} | cut -f1 -d' ' | diff -Bw - ${f}
   if [ $? -eq 0 ]; then
     echo 'Valid'
   else 
-    echo "SHA1 is Invalid: ${f}" >&2
+    echo "SHA512 is Invalid: ${f}" >&2
     exit 1
   fi  
-done
-echo
-for f in `find . -type f -iname '*.md5'`; do
-  echo -n "Verifying ${f%.*} ... "
-  md5sum ${f%.*} | cut -f1 -d' ' | diff -Bw - ${f}
-  if [ $? -eq 0 ]; then
-    echo 'Valid'
-  else
-    echo "MD5 is Invalid: ${f%.*}" >&2
-	exit 1
-  fi
 done
 echo
 for f in `find . -type f -iname '*.asc'`; do
@@ -100,14 +89,18 @@ cd hivemall-${VERSION}-incubating
 # workaround for Maven sign-release-artifacts plugin
 export GPG_TTY=$(tty)
 
-# JDK 7 is required for packaging
-export JAVA_HOME=`/usr/libexec/java_home -v 1.7`
+# JDK 8 is required for packaging
+export JAVA_HOME=`/usr/libexec/java_home -v 1.8`
 
-# Java 8 is required for building Spark 2.2 module
-export JAVA8_HOME=`/usr/libexec/java_home -v 1.8`
+# (Optional) TO avoid JVM errors in unit tests
+export MAVEN_OPTS=-XX:MaxMetaspaceSize=256m
 
-# Try to create artifacts
-export MAVEN_OPTS=-XX:MaxPermSize=256m
+# (Optional) Workaround for SSL error `Received fatal alert: protocol_version`
+export MAVEN_OPTS="$MAVEN_OPTS -Dhttps.protocols=TLSv1,TLSv1.1,TLSv1.2"
+
+# (Optional) Workaround for Surefire error:
+# Could not find or load main class org.apache.maven.surefire.booter.ForkedBooter
+export _JAVA_OPTIONS="-Djdk.net.URLClassPath.disableClassPathURLCheck=true"
 
 # Try to create artifacts
 # RAT license check and unit tests will be issued

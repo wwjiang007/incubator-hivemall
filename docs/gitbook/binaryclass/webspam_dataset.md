@@ -16,9 +16,9 @@
   specific language governing permissions and limitations
   under the License.
 -->
-        
+
 Get the dataset from 
-http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html#webspam
+https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html#webspam
 
 # Putting data on HDFS
 ```sql
@@ -32,10 +32,6 @@ hadoop fs -put - /dataset/webspam/raw/
 ```sql
 create database webspam;
 use webspam;
-
-delete jar ./tmp/hivemall.jar;
-add jar ./tmp/hivemall.jar;
-source ./tmp/define-all.hive;
 
 create external table webspam_raw (
   rowid int,

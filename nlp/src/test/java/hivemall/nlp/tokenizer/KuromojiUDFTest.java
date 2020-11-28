@@ -19,9 +19,12 @@
 package hivemall.nlp.tokenizer;
 
 import hivemall.TestUtils;
+import hivemall.utils.hadoop.HiveUtils;
+import hivemall.utils.lang.PrivilegedAccessor;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
@@ -33,6 +36,8 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.io.Text;
+import org.apache.lucene.analysis.ja.JapaneseTokenizer.Mode;
+import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -208,12 +213,14 @@ public class KuromojiUDFTest {
             @Override
             public void prepare(int arg) throws HiveException {}
         };
-        List<Text> tokens = udf.evaluate(args);
+        @SuppressWarnings("unchecked")
+        List<Text> tokens = (List<Text>) udf.evaluate(args);
         Assert.assertNotNull(tokens);
         Assert.assertEquals(5, tokens.size());
         udf.close();
     }
 
+    @SuppressWarnings("unchecked")
     @Test
     public void testEvaluateTwoRows() throws IOException, HiveException {
         KuromojiUDF udf = new KuromojiUDF();
@@ -231,7 +238,7 @@ public class KuromojiUDFTest {
             @Override
             public void prepare(int arg) throws HiveException {}
         };
-        List<Text> tokens = udf.evaluate(args);
+        List<Text> tokens = (List<Text>) udf.evaluate(args);
         Assert.assertNotNull(tokens);
         Assert.assertEquals(5, tokens.size());
 
@@ -243,10 +250,35 @@ public class KuromojiUDFTest {
             @Override
             public void prepare(int arg) throws HiveException {}
         };
-        tokens = udf.evaluate(args);
+        tokens = (List<Text>) udf.evaluate(args);
         Assert.assertNotNull(tokens);
         Assert.assertEquals(4, tokens.size());
 
+        udf.close();
+    }
+
+    @Test
+    public void testEvaluateLongRow() throws IOException, HiveException {
+        KuromojiUDF udf = new KuromojiUDF();
+        ObjectInspector[] argOIs = new ObjectInspector[1];
+        // line
+        argOIs[0] = PrimitiveObjectInspectorFactory.writableStringObjectInspector;
+        udf.initialize(argOIs);
+
+        DeferredObject[] args = new DeferredObject[1];
+        args[0] = new DeferredObject() {
+            public Text get() throws HiveException {
+                return new Text(
+                    "商品の購入・詳細(サイズ、画像)は商品名をクリックしてください！[L.B　CANDY　STOCK]フラワービジューベアドレス[L.B　DAILY　STOCK]ボーダーニットトップス［L.B　DAILY　STOCK］ボーダーロングニットOP［L.B　DAILY　STOCK］ロゴトートBAG［L.B　DAILY　STOCK］裏毛ロゴプリントプルオーバー【TVドラマ着用】アンゴラワッフルカーディガン【TVドラマ着用】グラフィティーバックリボンワンピース【TVドラマ着用】ボーダーハイネックトップス【TVドラマ着用】レオパードミッドカーフスカート【セットアップ対応商品】起毛ニットスカート【セットアップ対応商品】起毛ニットプルオーバー2wayサングラス33ナンバーリングニット3Dショルダーフレアードレス3周年スリッパ3周年ラグマット3周年ロックグラスキャンドルLily　Brown　2015年　福袋MIXニットプルオーバーPeckhamロゴニットアンゴラジャガードプルオーバーアンゴラタートルアンゴラチュニックアンゴラニットカーディガンアンゴラニットプルオーバーアンゴラフレアワンピースアンゴラロングカーディガンアンゴラワッフルカーディガンヴィンテージファー付コートヴィンテージボーダーニットヴィンテージレースハイネックトップスヴィンテージレースブラウスウエストシースルーボーダーワンピースオーガンジーラインフレアスカートオープンショルダーニットトップスオフショルシャーリングワンピースオフショルニットオフショルニットプルオーバーオフショルボーダーロンパースオフショルワイドコンビネゾンオルテガ柄ニットプルオーバーカシュクールオフショルワンピースカットアシンメトリードレスカットサテンプリーツフレアースカートカラースーパーハイウェストスキニーカラーブロックドレスカラーブロックニットチュニックギャザーフレアスカートキラキラストライプタイトスカートキラキラストライプドレスキルティングファーコートグラデーションベアドレスグラデーションラウンドサングラスグラフティーオフショルトップスグラフティーキュロットグリッターリボンヘアゴムクロップドブラウスケーブルハイウエストスカートコーデュロイ×スエードパネルスカートコーデュロイタイトスカートゴールドバックルベルト付スカートゴシックヒールショートブーツゴシック柄ニットワンピコンビスタジャンサイドステッチボーイズデニムパンツサスペつきショートパンツサスペンダー付プリーツロングスカートシャーリングタイトスカートジャガードタックワンピーススエードフリルフラワーパンツスエード裏毛肩空きトップススクエアショルダーBAGスクエアバックルショルダースクエアミニバッグストーンビーチサンダルストライプサスペ付きスキニーストライプバックスリットシャツスライバーシャギーコートタートル×レースタイトスカートタートルニットプルオーバータイトジャンパースカートダブルクロスチュールフレアスカートダブルストラップパンプスダブルハートリングダブルフェイスチェックストールチェーンコンビビジューネックレスチェーンコンビビジューピアスチェーンコンビビジューブレスチェーンツバ広HATチェーンビジューピアスチェックニットプルオーバーチェックネルミディアムスカートチェック柄スキニーパンツチュールコンビアシメトップスデニムフレアースカートドットオフショルフリルブラウスドットジャガードドレスドットニットプルオーバードットレーストップスニット×オーガンジースカートセットニットキャミソールワンピースニットスヌードパールコンビフープピアスハイウエストショートデニムハイウエストタイトスカートハイウエストデニムショートパンツハイウエストプリーツスカートハイウエストミッドカーフスカートハイゲージタートルニットハイゲージラインニットハイネック切り替えスウェットバタフライネックレスバタフライミニピアスバタフライリングバックタンクリブワンピースバックリボンスキニーデニムパンツバックリボン深Vワンピースビジューストラップサンダルビスチェコンビオフショルブラウスブークレジャガードニットフェイクムートンショートコートフェレットカーディガンフェレットビックタートルニットブラウジングクルーブラウスプリーツブラウスフリルニットプルオーバーフリンジニットプルオーバーフレアニットスカートブロウ型サングラスベーシックフェレットプルオーバーベルト付ガウチョパンツベルト付ショートパンツベルト付タックスカートベルト付タックパンツベルベットインヒールパンプスベロアウェッジパンプスベロアミッドカーフワンピースベロアワンピースベロア風ニットカーディガンボア付コートボーダーVネックTシャツボーダーオフショルカットソーボーダーカットソーワンピースボーダータイトカットソーボーダートップスボーダートップス×スカートセットボストンメガネマオカラーシャツニットセットミックスニットプルオーバーミッドカーフ丈ポンチスカートミリタリーギャザーショートパンツメッシュハイネックトップスメルトンPコートメルトンダッフルコートメルトンダブルコートモヘアニットカーディガンモヘアニットタートルユリ柄プリーツフレアースカートライダースデニムジャケットライナー付チェスターコートラッフルプリーツブラウスラメジャガードハイゲージニットリブニットワンピリボン×パールバレッタリボンバレッタリボンベルトハイウエストパンツリリー刺繍開襟ブラウスレースビスチェローファーサボロゴニットキャップロゴ刺繍ニットワッチロングニットガウンワッフルアンゴラプルオーバーワンショルダワーワンピース光沢ラメニットカーディガン刺繍シフォンブラウス台形ミニスカート配色ニットプルオーバー裏毛プルオーバー×オーガンジースカートセット");
+            }
+
+            @Override
+            public void prepare(int arg) throws HiveException {}
+        };
+        @SuppressWarnings("unchecked")
+        List<Text> tokens = (List<Text>) udf.evaluate(args);
+        Assert.assertNotNull(tokens);
+        Assert.assertEquals(182, tokens.size());
         udf.close();
     }
 
@@ -285,7 +317,8 @@ public class KuromojiUDFTest {
             public void prepare(int arg) throws HiveException {}
         };
 
-        List<Text> tokens = udf.evaluate(args);
+        @SuppressWarnings("unchecked")
+        List<Text> tokens = (List<Text>) udf.evaluate(args);
 
         Assert.assertNotNull(tokens);
         Assert.assertEquals(3, tokens.size());
@@ -325,7 +358,8 @@ public class KuromojiUDFTest {
             public void prepare(int arg) throws HiveException {}
         };
 
-        List<Text> tokens = udf.evaluate(args);
+        @SuppressWarnings("unchecked")
+        List<Text> tokens = (List<Text>) udf.evaluate(args);
         Assert.assertNotNull(tokens);
 
         udf.close();
@@ -365,7 +399,8 @@ public class KuromojiUDFTest {
             public void prepare(int arg) throws HiveException {}
         };
 
-        List<Text> tokens = udf.evaluate(args);
+        @SuppressWarnings("unchecked")
+        List<Text> tokens = (List<Text>) udf.evaluate(args);
 
         Assert.assertNotNull(tokens);
         Assert.assertEquals(7, tokens.size());
@@ -393,12 +428,89 @@ public class KuromojiUDFTest {
             @Override
             public void prepare(int arg) throws HiveException {}
         };
-        List<Text> tokens = udf.evaluate(args);
+        @SuppressWarnings("unchecked")
+        List<Text> tokens = (List<Text>) udf.evaluate(args);
         Assert.assertNotNull(tokens);
 
         // serialization after evaluation
         serialized = TestUtils.serializeObjectByKryo(udf);
         TestUtils.deserializeObjectByKryo(serialized, KuromojiUDF.class);
+
+        udf.close();
+    }
+
+    @Test
+    public void testNormalModeWithOption()
+            throws IOException, HiveException, IllegalAccessException, NoSuchFieldException {
+        GenericUDF udf = new KuromojiUDF();
+        ObjectInspector[] argOIs = new ObjectInspector[2];
+
+        argOIs[0] = PrimitiveObjectInspectorFactory.javaStringObjectInspector; // line
+        argOIs[1] = HiveUtils.getConstStringObjectInspector("-mode normal"); // mode
+        udf.initialize(argOIs);
+
+        Object mode = PrivilegedAccessor.getValue(udf, "_mode");
+        Assert.assertEquals(Mode.NORMAL, mode);
+
+        DeferredObject[] args = new DeferredObject[1];
+        args[0] = new DeferredObject() {
+            public Text get() throws HiveException {
+                return new Text("クロモジのJapaneseAnalyzerを使ってみる。テスト。");
+            }
+
+            @Override
+            public void prepare(int arg) throws HiveException {}
+        };
+        Object result = udf.evaluate(args);
+        Assert.assertThat(Arrays.asList(new Text("クロモジ"), new Text("japaneseanalyzer"),
+            new Text("使う"), new Text("みる"), new Text("テスト")), CoreMatchers.is(result));
+
+        udf.close();
+    }
+
+    @Test
+    public void testNormalModeWithPosOptions()
+            throws IOException, HiveException, IllegalAccessException, NoSuchFieldException {
+        GenericUDF udf = new KuromojiUDF();
+        ObjectInspector[] argOIs = new ObjectInspector[2];
+
+        argOIs[0] = PrimitiveObjectInspectorFactory.javaStringObjectInspector; // line
+        argOIs[1] = HiveUtils.getConstStringObjectInspector("-mode normal -pos"); // mode
+        udf.initialize(argOIs);
+
+        Object mode = PrivilegedAccessor.getValue(udf, "_mode");
+        Assert.assertEquals(Mode.NORMAL, mode);
+
+        DeferredObject[] args = new DeferredObject[1];
+        args[0] = new DeferredObject() {
+            public Text get() throws HiveException {
+                return new Text("クロモジのJapaneseAnalyzerを使ってみる。テスト。");
+            }
+
+            @Override
+            public void prepare(int arg) throws HiveException {}
+        };
+
+        Object[] result = (Object[]) udf.evaluate(args);
+        Assert.assertEquals(2, result.length);
+
+        Assert.assertEquals(Arrays.asList(new Text("クロモジ"), new Text("japaneseanalyzer"),
+            new Text("使う"), new Text("みる"), new Text("テスト")), result[0]);
+        Assert.assertEquals(Arrays.asList(new Text("名詞-一般"), new Text("名詞-一般"), new Text("動詞-自立"),
+            new Text("動詞-非自立"), new Text("名詞-サ変接続")), result[1]);
+
+        udf.close();
+    }
+
+    @Test(expected = UDFArgumentException.class)
+    public void testUnsupportedOptionArgs()
+            throws IOException, HiveException, IllegalAccessException, NoSuchFieldException {
+        GenericUDF udf = new KuromojiUDF();
+        ObjectInspector[] argOIs = new ObjectInspector[2];
+
+        argOIs[0] = PrimitiveObjectInspectorFactory.javaStringObjectInspector; // line
+        argOIs[1] = HiveUtils.getConstStringObjectInspector("-mode normal -unsupported_option"); // mode
+        udf.initialize(argOIs);
 
         udf.close();
     }

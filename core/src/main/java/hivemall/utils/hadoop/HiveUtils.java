@@ -31,6 +31,7 @@ import static hivemall.HivemallConstants.TINYINT_TYPE_NAME;
 import static hivemall.HivemallConstants.VOID_TYPE_NAME;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
@@ -66,9 +67,11 @@ import org.apache.hadoop.hive.serde2.objectinspector.MapObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
+import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils.ObjectInspectorCopyOption;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.PrimitiveCategory;
 import org.apache.hadoop.hive.serde2.objectinspector.StandardConstantListObjectInspector;
+import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BinaryObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.BooleanObjectInspector;
@@ -112,6 +115,17 @@ public final class HiveUtils {
         }
         String s = o.toString();
         return Integer.parseInt(s);
+    }
+
+    @Nullable
+    public static Writable copyToWritable(@Nullable final Object o,
+            @Nonnull final PrimitiveObjectInspector poi) {
+        if (o == null) {
+            return null;
+        }
+        Object copied = poi.copyObject(o);
+        Object result = poi.getPrimitiveWritableObject(copied);
+        return (Writable) result;
     }
 
     public static Text asText(@Nullable final Object o) {
@@ -460,6 +474,82 @@ public final class HiveUtils {
         return (ListTypeInfo) typeInfo;
     }
 
+    public static boolean isSameCategoryGroup(@Nonnull final PrimitiveCategory cat1,
+            @Nonnull final PrimitiveCategory cat2) {
+        if (cat1 == cat2) {
+            return true;
+        }
+
+        switch (cat1) {
+            // integers
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG: {
+                switch (cat2) {
+                    case BYTE:
+                    case SHORT:
+                    case INT:
+                    case LONG:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+            // floating point number
+            case FLOAT:
+            case DOUBLE: {
+                switch (cat2) {
+                    case FLOAT:
+                    case DOUBLE:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+            // string
+            case STRING:
+            case CHAR:
+            case VARCHAR:
+                switch (cat2) {
+                    case STRING:
+                    case CHAR:
+                    case VARCHAR:
+                        return true;
+                    default:
+                        return false;
+                }
+            default:
+                break;
+        }
+        return false;
+    }
+
+    @Nullable
+    public static ArrayList<Object> copyListObject(@Nonnull final DeferredObject argument,
+            @Nonnull final ListObjectInspector loi) throws HiveException {
+        return copyListObject(argument, loi, ObjectInspectorCopyOption.DEFAULT);
+    }
+
+    @Nullable
+    public static ArrayList<Object> copyListObject(@Nonnull final DeferredObject argument,
+            @Nonnull final ListObjectInspector loi,
+            @Nonnull final ObjectInspectorCopyOption objectInspectorOption) throws HiveException {
+        final Object o = argument.get();
+        if (o == null) {
+            return null;
+        }
+
+        final int length = loi.getListLength(o);
+        final ArrayList<Object> list = new ArrayList<Object>(length);
+        for (int i = 0; i < length; i++) {
+            Object e = ObjectInspectorUtils.copyToStandardObject(loi.getListElement(o, i),
+                loi.getListElementObjectInspector(), objectInspectorOption);
+            list.add(e);
+        }
+        return list;
+    }
+
     public static float getFloat(@Nullable Object o, @Nonnull PrimitiveObjectInspector oi) {
         if (o == null) {
             return 0.f;
@@ -479,6 +569,13 @@ public final class HiveUtils {
             return 0;
         }
         return PrimitiveObjectInspectorUtils.getInt(o, oi);
+    }
+
+    public static long getLong(@Nullable Object o, @Nonnull PrimitiveObjectInspector oi) {
+        if (o == null) {
+            return 0L;
+        }
+        return PrimitiveObjectInspectorUtils.getLong(o, oi);
     }
 
     @SuppressWarnings("unchecked")
@@ -554,6 +651,7 @@ public final class HiveUtils {
         return ary;
     }
 
+    @Nullable
     public static String getConstString(@Nonnull final ObjectInspector oi)
             throws UDFArgumentException {
         if (!isStringOI(oi)) {
@@ -564,10 +662,35 @@ public final class HiveUtils {
         return v == null ? null : v.toString();
     }
 
+
+    @Nullable
+    public static String getConstString(@Nonnull final ObjectInspector[] argOIs, final int argIndex)
+            throws UDFArgumentException {
+        final ObjectInspector oi = getObjectInspector(argOIs, argIndex);
+        if (!isStringOI(oi)) {
+            throw new UDFArgumentTypeException(argIndex, "argument must be a Text value: "
+                    + TypeInfoUtils.getTypeInfoFromObjectInspector(oi));
+        }
+        Text v = getConstValue(oi);
+        return v == null ? null : v.toString();
+    }
+
     public static boolean getConstBoolean(@Nonnull final ObjectInspector oi)
             throws UDFArgumentException {
         if (!isBooleanOI(oi)) {
             throw new UDFArgumentException("argument must be a Boolean value: "
+                    + TypeInfoUtils.getTypeInfoFromObjectInspector(oi));
+        }
+        BooleanWritable v = getConstValue(oi);
+        return v.get();
+    }
+
+
+    public static boolean getConstBoolean(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        final ObjectInspector oi = getObjectInspector(argOIs, argIndex);
+        if (!isBooleanOI(oi)) {
+            throw new UDFArgumentTypeException(argIndex, "argument must be a Boolean value: "
                     + TypeInfoUtils.getTypeInfoFromObjectInspector(oi));
         }
         BooleanWritable v = getConstValue(oi);
@@ -874,6 +997,14 @@ public final class HiveUtils {
         return (ConstantObjectInspector) oi;
     }
 
+    public static ObjectInspector getObjectInspector(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        if (argIndex >= argOIs.length) {
+            throw new UDFArgumentException("Illegal argument index:" + argIndex);
+        }
+        return argOIs[argIndex];
+    }
+
     @Nonnull
     public static PrimitiveObjectInspector asPrimitiveObjectInspector(
             @Nonnull final ObjectInspector oi) throws UDFArgumentException {
@@ -885,12 +1016,35 @@ public final class HiveUtils {
     }
 
     @Nonnull
+    public static PrimitiveObjectInspector asPrimitiveObjectInspector(
+            @Nonnull final ObjectInspector[] argOIs, final int argIndex)
+            throws UDFArgumentException {
+        final ObjectInspector oi = getObjectInspector(argOIs, argIndex);
+        if (oi.getCategory() != Category.PRIMITIVE) {
+            throw new UDFArgumentException("Expecting PrimitiveObjectInspector for argOIs["
+                    + argIndex + "] but got " + TypeInfoUtils.getTypeInfoFromObjectInspector(oi));
+        }
+        return (PrimitiveObjectInspector) oi;
+    }
+
+    @Nonnull
     public static StringObjectInspector asStringOI(@Nonnull final ObjectInspector argOI)
             throws UDFArgumentException {
-        if (!STRING_TYPE_NAME.equals(argOI.getTypeName())) {
+        if (!isStringOI(argOI)) {
             throw new UDFArgumentException("Argument type must be String: " + argOI.getTypeName());
         }
         return (StringObjectInspector) argOI;
+    }
+
+    @Nonnull
+    public static StringObjectInspector asStringOI(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        final ObjectInspector oi = getObjectInspector(argOIs, argIndex);
+        if (!isStringOI(oi)) {
+            throw new UDFArgumentException(
+                "argOIs[" + argIndex + "] type must be String: " + oi.getTypeName());
+        }
+        return (StringObjectInspector) oi;
     }
 
     @Nonnull
@@ -907,6 +1061,17 @@ public final class HiveUtils {
             throws UDFArgumentException {
         if (!BOOLEAN_TYPE_NAME.equals(argOI.getTypeName())) {
             throw new UDFArgumentException("Argument type must be Boolean: " + argOI.getTypeName());
+        }
+        return (BooleanObjectInspector) argOI;
+    }
+
+    @Nonnull
+    public static BooleanObjectInspector asBooleanOI(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        ObjectInspector argOI = getObjectInspector(argOIs, argIndex);
+        if (!BOOLEAN_TYPE_NAME.equals(argOI.getTypeName())) {
+            throw new UDFArgumentTypeException(argIndex,
+                "Argument type must be Boolean: " + argOI.getTypeName());
         }
         return (BooleanObjectInspector) argOI;
     }
@@ -939,6 +1104,17 @@ public final class HiveUtils {
     }
 
     @Nonnull
+    public static DoubleObjectInspector asDoubleOI(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        ObjectInspector argOI = getObjectInspector(argOIs, argIndex);
+        if (!DOUBLE_TYPE_NAME.equals(argOI.getTypeName())) {
+            throw new UDFArgumentTypeException(argIndex,
+                "Argument type must be DOUBLE: " + argOI.getTypeName());
+        }
+        return (DoubleObjectInspector) argOI;
+    }
+
+    @Nonnull
     public static PrimitiveObjectInspector asIntCompatibleOI(@Nonnull final ObjectInspector argOI)
             throws UDFArgumentTypeException {
         if (argOI.getCategory() != Category.PRIMITIVE) {
@@ -959,6 +1135,35 @@ public final class HiveUtils {
                 break;
             default:
                 throw new UDFArgumentTypeException(0,
+                    "Unexpected type '" + argOI.getTypeName() + "' is passed.");
+        }
+        return oi;
+    }
+
+    @Nonnull
+    public static PrimitiveObjectInspector asIntCompatibleOI(
+            @Nonnull final ObjectInspector[] argOIs, final int argIndex)
+            throws UDFArgumentException {
+        ObjectInspector argOI = getObjectInspector(argOIs, argIndex);
+        if (argOI.getCategory() != Category.PRIMITIVE) {
+            throw new UDFArgumentTypeException(argIndex,
+                "Only primitive type arguments are accepted but " + argOI.getTypeName()
+                        + " is passed.");
+        }
+        final PrimitiveObjectInspector oi = (PrimitiveObjectInspector) argOI;
+        switch (oi.getPrimitiveCategory()) {
+            case INT:
+            case SHORT:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case BOOLEAN:
+            case BYTE:
+            case STRING:
+                break;
+            default:
+                throw new UDFArgumentTypeException(argIndex,
                     "Unexpected type '" + argOI.getTypeName() + "' is passed.");
         }
         return oi;
@@ -1013,6 +1218,29 @@ public final class HiveUtils {
     }
 
     @Nonnull
+    public static PrimitiveObjectInspector asIntegerOI(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        final ObjectInspector argOI = getObjectInspector(argOIs, argIndex);
+        if (argOI.getCategory() != Category.PRIMITIVE) {
+            throw new UDFArgumentTypeException(argIndex,
+                "Only primitive type arguments are accepted but " + argOI.getTypeName()
+                        + " is passed.");
+        }
+        final PrimitiveObjectInspector oi = (PrimitiveObjectInspector) argOI;
+        switch (oi.getPrimitiveCategory()) {
+            case INT:
+            case SHORT:
+            case LONG:
+            case BYTE:
+                break;
+            default:
+                throw new UDFArgumentTypeException(argIndex,
+                    "Unexpected type '" + argOI.getTypeName() + "' is passed.");
+        }
+        return oi;
+    }
+
+    @Nonnull
     public static PrimitiveObjectInspector asDoubleCompatibleOI(
             @Nonnull final ObjectInspector argOI) throws UDFArgumentTypeException {
         if (argOI.getCategory() != Category.PRIMITIVE) {
@@ -1040,6 +1268,31 @@ public final class HiveUtils {
     }
 
     @Nonnull
+    public static PrimitiveObjectInspector asDoubleCompatibleOI(
+            @Nonnull final ObjectInspector[] argOIs, final int argIndex)
+            throws UDFArgumentException {
+        final PrimitiveObjectInspector oi = asPrimitiveObjectInspector(argOIs, argIndex);
+        switch (oi.getPrimitiveCategory()) {
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case STRING:
+            case TIMESTAMP:
+                break;
+            default:
+                throw new UDFArgumentTypeException(argIndex,
+                    "Only numeric or string type arguments are accepted but " + oi.getTypeName()
+                            + " is passed for argument index " + argIndex);
+        }
+        return oi;
+
+    }
+
+    @Nonnull
     public static PrimitiveObjectInspector asFloatingPointOI(@Nonnull final ObjectInspector argOI)
             throws UDFArgumentTypeException {
         if (argOI.getCategory() != Category.PRIMITIVE) {
@@ -1053,9 +1306,28 @@ public final class HiveUtils {
             case DECIMAL:
                 break;
             default:
-                throw new UDFArgumentTypeException(0,
-                    "Only numeric or string type arguments are accepted but " + argOI.getTypeName()
-                            + " is passed.");
+                throw new UDFArgumentTypeException(0, "Only floating point number is accepted but "
+                        + argOI.getTypeName() + " is passed.");
+        }
+        return oi;
+    }
+
+    @Nonnull
+    public static PrimitiveObjectInspector asNumberOI(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        final PrimitiveObjectInspector oi = asPrimitiveObjectInspector(argOIs, argIndex);
+        switch (oi.getPrimitiveCategory()) {
+            case BYTE:
+            case SHORT:
+            case INT:
+            case LONG:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+                break;
+            default:
+                throw new UDFArgumentTypeException(argIndex,
+                    "Only numeric argument is accepted but " + oi.getTypeName() + " is passed.");
         }
         return oi;
     }
@@ -1079,8 +1351,7 @@ public final class HiveUtils {
                 break;
             default:
                 throw new UDFArgumentTypeException(0,
-                    "Only numeric or string type arguments are accepted but " + argOI.getTypeName()
-                            + " is passed.");
+                    "Only numeric argument is accepted but " + argOI.getTypeName() + " is passed.");
         }
         return oi;
     }
@@ -1094,6 +1365,19 @@ public final class HiveUtils {
         }
         return (ListObjectInspector) oi;
     }
+
+    @Nonnull
+    public static ListObjectInspector asListOI(@Nonnull final ObjectInspector[] argOIs,
+            final int argIndex) throws UDFArgumentException {
+        final ObjectInspector oi = getObjectInspector(argOIs, argIndex);
+        Category category = oi.getCategory();
+        if (category != Category.LIST) {
+            throw new UDFArgumentException("Expecting ListObjectInspector for argOIs[" + argIndex
+                    + "] but got " + TypeInfoUtils.getTypeInfoFromObjectInspector(oi));
+        }
+        return (ListObjectInspector) oi;
+    }
+
 
     @Nonnull
     public static MapObjectInspector asMapOI(@Nonnull final ObjectInspector oi)
@@ -1211,7 +1495,7 @@ public final class HiveUtils {
 
     @Nonnull
     public static ObjectInspector getObjectInspector(@Nonnull final String typeString,
-            boolean preferWritable) {
+            final boolean preferWritable) {
         TypeInfo typeInfo = TypeInfoUtils.getTypeInfoFromTypeString(typeString);
         if (preferWritable) {
             return TypeInfoUtils.getStandardWritableObjectInspectorFromTypeInfo(typeInfo);
@@ -1227,4 +1511,24 @@ public final class HiveUtils {
             TypeInfoFactory.stringTypeInfo, new Text(str));
     }
 
+    @Nullable
+    public static StructField getStructFieldRef(@Nonnull String fieldName,
+            @Nonnull final List<? extends StructField> fields) {
+        fieldName = fieldName.toLowerCase();
+        for (StructField f : fields) {
+            if (f.getFieldName().equals(fieldName)) {
+                return f;
+            }
+        }
+        // For backward compatibility: fieldNames can also be integer Strings.
+        try {
+            final int i = Integer.parseInt(fieldName);
+            if (i >= 0 && i < fields.size()) {
+                return fields.get(i);
+            }
+        } catch (NumberFormatException e) {
+            // ignore
+        }
+        return null;
+    }
 }

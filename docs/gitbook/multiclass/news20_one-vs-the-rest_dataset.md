@@ -20,14 +20,6 @@
 *One-vs-the-rest* is a multiclass classification method that uses binary classifiers independently for each class.
 http://en.wikipedia.org/wiki/Multiclass_classification#one_vs_all
 
-## UDF preparation
-```sql
-delete jar /home/myui/tmp/hivemall.jar;
-add jar /home/myui/tmp/hivemall.jar;
-
-source /home/myui/tmp/define-all.hive;
-```
-
 ## Dataset preparation for one-vs-the-rest classifiers
 
 ```sql
@@ -39,7 +31,7 @@ select collect_set(label) from news20mc_train;
 SET hivevar:possible_labels="1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,17,16,19,18,20";
 ```
 
-[one-vs-rest.awk](https://github.com/myui/hivemall/blob/master/resources/misc/one-vs-rest.awk)
+[one-vs-rest.awk](https://github.com/apache/incubator-hivemall/blob/master/resources/misc/one-vs-rest.awk)
 
 ```
 create or replace view news20_onevsrest_train

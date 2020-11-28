@@ -24,6 +24,9 @@ public final class Primitives {
     public static final int INT_BYTES = Integer.SIZE / Byte.SIZE;
     public static final int DOUBLE_BYTES = Double.SIZE / Byte.SIZE;
 
+    public static final Byte TRUE_BYTE = 1;
+    public static final Byte FALSE_BYTE = 0;
+
     private Primitives() {}
 
     public static short parseShort(final String s, final short defaultValue) {
@@ -73,6 +76,10 @@ public final class Primitives {
             return defaultValue;
         }
         return v.doubleValue();
+    }
+
+    public static boolean isFinite(final double value) {
+        return Double.NEGATIVE_INFINITY < value && value < Double.POSITIVE_INFINITY;
     }
 
     public static int compare(final int x, final int y) {

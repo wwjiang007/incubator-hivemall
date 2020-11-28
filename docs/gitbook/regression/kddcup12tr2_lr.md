@@ -18,13 +18,13 @@
 -->
         
 The task is predicting the click through rate (CTR) of advertisement, meaning that we are to predict the probability of each ad being clicked.   
-http://www.kddcup2012.org/c/kddcup2012-track2
+https://www.kaggle.com/c/kddcup2012-track2
 
 _Caution: This example just shows a baseline result. Use token tables and amplifier to get better AUC score._
 
----
-Logistic Regression
-===============
+<!-- toc -->
+
+# Logistic Regression
 
 ## Training
 ```sql
@@ -59,10 +59,13 @@ group by feature;
 
 -- set mapred.max.split.size=-1; -- reset to the default value
 ```
-_Note: Setting the "-total_steps" option is optional._
+
+> #### Note
+> Setting the "-total_steps" option is optional.
 
 ## Prediction
-```
+
+```sql
 drop table lr_predict;
 create table lr_predict
   ROW FORMAT DELIMITED 
@@ -74,16 +77,22 @@ select
   t.rowid, 
   sigmoid(sum(m.weight)) as prob
 from 
-  testing_exploded  t LEFT OUTER JOIN
-  lr_model m ON (t.feature = m.feature)
+  testing_exploded t
+  LEFT OUTER JOIN lr_model m 
+  	ON (t.feature = m.feature)
 group by 
   t.rowid
 order by 
   rowid ASC;
 ```
+
+> #### Note
+> `sigmoid(sum(m.weight))` not `sigmoid(sum(m.weight * t.value)))` because t.value is always 1.0 for categorical variable.
+
 ## Evaluation
 
-[scoreKDD.py](https://github.com/myui/hivemall/blob/master/resources/examples/kddtrack2/scoreKDD.py)
+You can download scoreKDD.py from [KDD Cup 2012, Track 2 site](https://www.kaggle.com/c/kddcup2012-track2/data). After logging-in to Kaggle, download
+scoreKDD.py.
 
 ```sh
 hadoop fs -getmerge /user/hive/warehouse/kdd12track2.db/lr_predict lr_predict.tbl
@@ -92,7 +101,6 @@ gawk -F "\t" '{print $2;}' lr_predict.tbl > lr_predict.submit
 
 pypy scoreKDD.py KDD_Track2_solution.csv  lr_predict.submit
 ```
-_Note: You can use python instead of pypy._
 
 | Measure | Score |
 |:-----------|------------:|
@@ -100,11 +108,12 @@ _Note: You can use python instead of pypy._
 | NWMAE | 0.045493 |
 | WRMSE | 0.142395 |
 ---
-Passive Aggressive
-===============
+
+# Passive Aggressive
 
 ## Training
-```
+
+```sql
 drop table pa_model;
 create table pa_model 
 as
@@ -119,10 +128,13 @@ from
  ) t 
 group by feature;
 ```
-_PA1a is recommended when using PA for regression._
+
+> #### Note
+> PA1a is recommended when using PA for regression.
 
 ## Prediction
-```
+
+```sql
 drop table pa_predict;
 create table pa_predict
   ROW FORMAT DELIMITED 
@@ -141,7 +153,9 @@ group by
 order by 
   rowid ASC;
 ```
-_The "prob" of PA can be used only for ranking and can have a negative value. A higher weight means much likely to be clicked. Note that AUC is sort a measure for evaluating ranking accuracy._
+
+> #### Caution
+> The "prob" of PA can be used only for ranking and can have a negative value. A higher weight means much likely to be clicked. Note that AUC is sort a measure for evaluating ranking accuracy.
 
 ## Evaluation
 

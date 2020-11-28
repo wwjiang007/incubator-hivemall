@@ -46,6 +46,10 @@ public final class BoundedPriorityQueue<E> {
         this.queue = new PriorityQueue<E>(size + 10, comparator);
     }
 
+    public boolean contains(@Nonnull E e) {
+        return queue.contains(e);
+    }
+
     public boolean offer(@Nonnull E e) {
         if (e == null) {
             throw new IllegalArgumentException("Null argument is not permitted");

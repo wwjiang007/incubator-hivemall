@@ -19,22 +19,38 @@
 package hivemall.smile.classification;
 
 import static org.junit.Assert.assertEquals;
-import hivemall.math.matrix.Matrix;
-import hivemall.math.matrix.builders.CSRMatrixBuilder;
-import hivemall.math.matrix.dense.RowMajorDenseMatrix2d;
-import hivemall.math.random.RandomNumberGeneratorFactory;
+
+import matrix4j.matrix.Matrix;
+import matrix4j.matrix.builders.CSRMatrixBuilder;
+import matrix4j.matrix.dense.RowMajorDenseMatrix2d;
+import matrix4j.vector.DenseVector;
 import hivemall.smile.classification.DecisionTree.Node;
-import hivemall.smile.data.Attribute;
+import hivemall.smile.classification.DecisionTree.SplitRule;
 import hivemall.smile.tools.TreeExportUDF.Evaluator;
 import hivemall.smile.tools.TreeExportUDF.OutputType;
 import hivemall.smile.utils.SmileExtUtils;
 import hivemall.utils.codec.Base91;
+import hivemall.utils.lang.ArrayUtils;
+import hivemall.utils.lang.StringUtils;
+import hivemall.utils.math.MathUtils;
+import hivemall.utils.random.PRNG;
+import hivemall.utils.random.RandomNumberGeneratorFactory;
+import smile.data.Attribute;
+import smile.data.AttributeDataset;
+import smile.data.NominalAttribute;
+import smile.data.parser.ArffParser;
+import smile.data.parser.DelimitedTextParser;
+import smile.math.Math;
+import smile.validation.LOOCV;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.text.ParseException;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Random;
 
 import javax.annotation.Nonnull;
 
@@ -42,11 +58,7 @@ import org.apache.hadoop.hive.ql.metadata.HiveException;
 import org.apache.hadoop.io.Text;
 import org.junit.Assert;
 import org.junit.Test;
-
-import smile.data.AttributeDataset;
-import smile.data.parser.ArffParser;
-import smile.math.Math;
-import smile.validation.LOOCV;
+import org.roaringbitmap.RoaringBitmap;
 
 public class DecisionTreeTest {
     private static final boolean DEBUG = false;
@@ -90,6 +102,15 @@ public class DecisionTreeTest {
         int responseIndex = 4;
         int numLeafs = Integer.MAX_VALUE;
         runAndCompareSparseAndDense(
+            "https://gist.githubusercontent.com/myui/143fa9d05bd6e7db0114/raw/500f178316b802f1cade6e3bf8dc814a96e84b1e/iris.arff",
+            responseIndex, numLeafs);
+    }
+
+    @Test
+    public void testIrisTracePredict() throws IOException, ParseException {
+        int responseIndex = 4;
+        int numLeafs = Integer.MAX_VALUE;
+        runTracePredict(
             "https://gist.githubusercontent.com/myui/143fa9d05bd6e7db0114/raw/500f178316b802f1cade6e3bf8dc814a96e84b1e/iris.arff",
             responseIndex, numLeafs);
     }
@@ -165,7 +186,7 @@ public class DecisionTreeTest {
         double[][] x = ds.toArray(new double[ds.size()][]);
         int[] y = ds.toArray(new int[ds.size()]);
 
-        Attribute[] attrs = SmileExtUtils.convertAttributeTypes(ds.attributes());
+        RoaringBitmap attrs = SmileExtUtils.convertAttributeTypes(ds.attributes());
         DecisionTree tree = new DecisionTree(attrs, matrix(x, dense), y, numLeafs,
             RandomNumberGeneratorFactory.createPRNG(31));
 
@@ -196,7 +217,7 @@ public class DecisionTreeTest {
             double[][] trainx = Math.slice(x, loocv.train[i]);
             int[] trainy = Math.slice(y, loocv.train[i]);
 
-            Attribute[] attrs = SmileExtUtils.convertAttributeTypes(ds.attributes());
+            RoaringBitmap attrs = SmileExtUtils.convertAttributeTypes(ds.attributes());
             DecisionTree tree = new DecisionTree(attrs, matrix(trainx, dense), trainy, numLeafs,
                 RandomNumberGeneratorFactory.createPRNG(i));
             if (y[loocv.test[i]] != tree.predict(x[loocv.test[i]])) {
@@ -226,13 +247,77 @@ public class DecisionTreeTest {
             double[][] trainx = Math.slice(x, loocv.train[i]);
             int[] trainy = Math.slice(y, loocv.train[i]);
 
-            Attribute[] attrs = SmileExtUtils.convertAttributeTypes(ds.attributes());
+            RoaringBitmap attrs = SmileExtUtils.convertAttributeTypes(ds.attributes());
             DecisionTree dtree = new DecisionTree(attrs, matrix(trainx, true), trainy, numLeafs,
                 RandomNumberGeneratorFactory.createPRNG(i));
             DecisionTree stree = new DecisionTree(attrs, matrix(trainx, false), trainy, numLeafs,
                 RandomNumberGeneratorFactory.createPRNG(i));
             Assert.assertEquals(dtree.predict(x[loocv.test[i]]), stree.predict(x[loocv.test[i]]));
+            Assert.assertEquals(dtree.toString(), stree.toString());
         }
+    }
+
+    private static void runTracePredict(String datasetUrl, int responseIndex, int numLeafs)
+            throws IOException, ParseException {
+        URL url = new URL(datasetUrl);
+        InputStream is = new BufferedInputStream(url.openStream());
+
+        ArffParser arffParser = new ArffParser();
+        arffParser.setResponseIndex(responseIndex);
+
+        AttributeDataset ds = arffParser.parse(is);
+        final Attribute[] attrs = ds.attributes();
+        final Attribute targetAttr = ds.response();
+
+        double[][] x = ds.toArray(new double[ds.size()][]);
+        int[] y = ds.toArray(new int[ds.size()]);
+
+        Random rnd = new Random(43L);
+        int numTrain = (int) (x.length * 0.7);
+        int[] index = ArrayUtils.shuffle(MathUtils.permutation(x.length), rnd);
+        int[] cvTrain = Arrays.copyOf(index, numTrain);
+        int[] cvTest = Arrays.copyOfRange(index, numTrain, index.length);
+
+        double[][] trainx = Math.slice(x, cvTrain);
+        int[] trainy = Math.slice(y, cvTrain);
+        double[][] testx = Math.slice(x, cvTest);
+
+        DecisionTree tree = new DecisionTree(SmileExtUtils.convertAttributeTypes(attrs),
+            matrix(trainx, false), trainy, numLeafs, RandomNumberGeneratorFactory.createPRNG(43L));
+
+        final LinkedHashMap<String, Double> map = new LinkedHashMap<>();
+        final StringBuilder buf = new StringBuilder();
+        for (int i = 0; i < testx.length; i++) {
+            final DenseVector test = new DenseVector(testx[i]);
+            tree.predict(test, new PredictionHandler() {
+
+                @Override
+                public void visitBranch(Operator op, int splitFeatureIndex, double splitFeature,
+                        double splitValue) {
+                    buf.append(attrs[splitFeatureIndex].name);
+                    buf.append(" [" + splitFeature + "] ");
+                    buf.append(op);
+                    buf.append(' ');
+                    buf.append(splitValue);
+                    buf.append('\n');
+
+                    map.put(attrs[splitFeatureIndex].name + " [" + splitFeature + "] " + op,
+                        splitValue);
+                }
+
+                @Override
+                public void visitLeaf(int output, double[] posteriori) {
+                    buf.append(targetAttr.toString(output));
+                }
+            });
+
+            Assert.assertTrue(buf.length() > 0);
+            Assert.assertFalse(map.isEmpty());
+
+            StringUtils.clear(buf);
+            map.clear();
+        }
+
     }
 
     @Test
@@ -253,7 +338,7 @@ public class DecisionTreeTest {
             double[][] trainx = Math.slice(x, loocv.train[i]);
             int[] trainy = Math.slice(y, loocv.train[i]);
 
-            Attribute[] attrs = SmileExtUtils.convertAttributeTypes(iris.attributes());
+            RoaringBitmap attrs = SmileExtUtils.convertAttributeTypes(iris.attributes());
             DecisionTree tree = new DecisionTree(attrs, matrix(trainx, true), trainy, 4);
 
             byte[] b = tree.serialize(false);
@@ -280,7 +365,7 @@ public class DecisionTreeTest {
             double[][] trainx = Math.slice(x, loocv.train[i]);
             int[] trainy = Math.slice(y, loocv.train[i]);
 
-            Attribute[] attrs = SmileExtUtils.convertAttributeTypes(iris.attributes());
+            RoaringBitmap attrs = SmileExtUtils.convertAttributeTypes(iris.attributes());
             DecisionTree tree = new DecisionTree(attrs, matrix(trainx, true), trainy, 4);
 
             byte[] b1 = tree.serialize(true);
@@ -290,6 +375,56 @@ public class DecisionTreeTest {
             Node node = DecisionTree.deserialize(b1, b1.length, true);
             assertEquals(tree.predict(x[loocv.test[i]]), node.predict(x[loocv.test[i]]));
         }
+    }
+
+    @Test
+    public void testTitanicPruning() throws IOException, ParseException {
+        String datasetUrl =
+                "https://gist.githubusercontent.com/myui/7cd82c443db84ba7e7add1523d0247a9/raw/f2d3e3051b0292577e8c01a1759edabaa95c5781/titanic_train.tsv";
+
+        URL url = new URL(datasetUrl);
+        InputStream is = new BufferedInputStream(url.openStream());
+
+        DelimitedTextParser parser = new DelimitedTextParser();
+        parser.setColumnNames(true);
+        parser.setDelimiter(",");
+        parser.setResponseIndex(new NominalAttribute("survived"), 0);
+
+        AttributeDataset train = parser.parse("titanic train", is);
+        double[][] x_ = train.toArray(new double[train.size()][]);
+        int[] y = train.toArray(new int[train.size()]);
+
+        // pclass, name, sex, age, sibsp, parch, ticket, fare, cabin, embarked
+        // C,C,C,Q,Q,Q,C,Q,C,C
+        RoaringBitmap nominalAttrs = new RoaringBitmap();
+        nominalAttrs.add(0);
+        nominalAttrs.add(1);
+        nominalAttrs.add(2);
+        nominalAttrs.add(6);
+        nominalAttrs.add(8);
+        nominalAttrs.add(9);
+
+        int columns = x_[0].length;
+        Matrix x = new RowMajorDenseMatrix2d(x_, columns);
+        int numVars = (int) Math.ceil(Math.sqrt(columns));
+        int maxDepth = Integer.MAX_VALUE;
+        int maxLeafs = Integer.MAX_VALUE;
+        int minSplits = 2;
+        int minLeafSize = 1;
+        int[] samples = null;
+        PRNG rand = RandomNumberGeneratorFactory.createPRNG(43L);
+
+        final String[] featureNames = new String[] {"pclass", "name", "sex", "age", "sibsp",
+                "parch", "ticket", "fare", "cabin", "embarked"};
+        final String[] classNames = new String[] {"yes", "no"};
+        DecisionTree tree = new DecisionTree(nominalAttrs, x, y, numVars, maxDepth, maxLeafs,
+            minSplits, minLeafSize, samples, SplitRule.GINI, rand) {
+            @Override
+            public String toString() {
+                return predictJsCodegen(featureNames, classNames);
+            }
+        };
+        tree.toString();
     }
 
     @Nonnull

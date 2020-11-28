@@ -20,6 +20,7 @@ package hivemall.optimizer;
 
 import hivemall.utils.lang.NumberUtils;
 import hivemall.utils.lang.Primitives;
+import hivemall.utils.lang.StringUtils;
 
 import java.util.Map;
 
@@ -32,11 +33,18 @@ import org.apache.hadoop.hive.ql.exec.UDFArgumentException;
 
 public abstract class EtaEstimator {
 
+    public static final float DEFAULT_ETA0 = 0.1f;
+    public static final float DEFAULT_ETA = 0.3f;
+    public static final double DEFAULT_POWER_T = 0.1d;
+
     protected final float eta0;
 
     public EtaEstimator(float eta0) {
         this.eta0 = eta0;
     }
+
+    @Nonnull
+    public abstract String typeName();
 
     public float eta0() {
         return eta0;
@@ -46,15 +54,30 @@ public abstract class EtaEstimator {
 
     public void update(@Nonnegative float multiplier) {}
 
+    public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+        hyperParams.put("eta", typeName());
+        hyperParams.put("eta0", eta0());
+    }
+
     public static final class FixedEtaEstimator extends EtaEstimator {
 
         public FixedEtaEstimator(float eta) {
             super(eta);
         }
 
+        @Nonnull
+        public String typeName() {
+            return "Fixed";
+        }
+
         @Override
         public float eta(long t) {
             return eta0;
+        }
+
+        @Override
+        public String toString() {
+            return "FixedEtaEstimator [ eta0 = " + eta0 + " ]";
         }
 
     }
@@ -70,12 +93,28 @@ public abstract class EtaEstimator {
             this.total_steps = total_steps;
         }
 
+        @Nonnull
+        public String typeName() {
+            return "Simple";
+        }
+
         @Override
         public float eta(final long t) {
             if (t > total_steps) {
                 return finalEta;
             }
             return (float) (eta0 / (1.d + (t / total_steps)));
+        }
+
+        @Override
+        public String toString() {
+            return "SimpleEtaEstimator [ eta0 = " + eta0 + ", totalSteps = " + total_steps
+                    + ", finalEta = " + finalEta + " ]";
+        }
+
+        public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+            super.getHyperParameters(hyperParams);
+            hyperParams.put("total_steps", total_steps);
         }
 
     }
@@ -89,11 +128,25 @@ public abstract class EtaEstimator {
             this.power_t = power_t;
         }
 
+        @Nonnull
+        public String typeName() {
+            return "Invscaling";
+        }
+
         @Override
         public float eta(final long t) {
             return (float) (eta0 / Math.pow(t, power_t));
         }
 
+        @Override
+        public String toString() {
+            return "InvscalingEtaEstimator [ eta0 = " + eta0 + ", power_t = " + power_t + " ]";
+        }
+
+        public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+            super.getHyperParameters(hyperParams);
+            hyperParams.put("power_t", power_t);
+        }
     }
 
     /**
@@ -107,6 +160,11 @@ public abstract class EtaEstimator {
         public AdjustingEtaEstimator(float eta) {
             super(eta);
             this.eta = eta;
+        }
+
+        @Nonnull
+        public String typeName() {
+            return "boldDriver";
         }
 
         @Override
@@ -124,22 +182,27 @@ public abstract class EtaEstimator {
             this.eta = Math.min(eta0, newEta); // never be larger than eta0
         }
 
+        @Override
+        public String toString() {
+            return "AdjustingEtaEstimator [ eta0 = " + eta0 + ", eta = " + eta + " ]";
+        }
+
     }
 
     @Nonnull
     public static EtaEstimator get(@Nullable CommandLine cl) throws UDFArgumentException {
-        return get(cl, 0.1f);
+        return get(cl, DEFAULT_ETA0);
     }
 
     @Nonnull
     public static EtaEstimator get(@Nullable CommandLine cl, float defaultEta0)
             throws UDFArgumentException {
         if (cl == null) {
-            return new InvscalingEtaEstimator(defaultEta0, 0.1d);
+            return new InvscalingEtaEstimator(defaultEta0, DEFAULT_POWER_T);
         }
 
         if (cl.hasOption("boldDriver")) {
-            float eta = Primitives.parseFloat(cl.getOptionValue("eta"), 0.3f);
+            float eta = Primitives.parseFloat(cl.getOptionValue("eta"), DEFAULT_ETA);
             return new AdjustingEtaEstimator(eta);
         }
 
@@ -155,15 +218,15 @@ public abstract class EtaEstimator {
             return new SimpleEtaEstimator(eta0, t);
         }
 
-        double power_t = Primitives.parseDouble(cl.getOptionValue("power_t"), 0.1d);
+        double power_t = Primitives.parseDouble(cl.getOptionValue("power_t"), DEFAULT_POWER_T);
         return new InvscalingEtaEstimator(eta0, power_t);
     }
 
     @Nonnull
     public static EtaEstimator get(@Nonnull final Map<String, String> options)
             throws IllegalArgumentException {
-        final float eta0 = Primitives.parseFloat(options.get("eta0"), 0.1f);
-        final double power_t = Primitives.parseDouble(options.get("power_t"), 0.1d);
+        final float eta0 = Primitives.parseFloat(options.get("eta0"), DEFAULT_ETA0);
+        final double power_t = Primitives.parseDouble(options.get("power_t"), DEFAULT_POWER_T);
 
         final String etaScheme = options.get("eta");
         if (etaScheme == null) {
@@ -181,9 +244,14 @@ public abstract class EtaEstimator {
                     "-total_steps MUST be provided when `-eta simple` is specified");
             }
             return new SimpleEtaEstimator(eta0, t);
-        } else if ("inv".equalsIgnoreCase(etaScheme) || "inverse".equalsIgnoreCase(etaScheme)) {
+        } else if ("inv".equalsIgnoreCase(etaScheme) || "inverse".equalsIgnoreCase(etaScheme)
+                || "invscaling".equalsIgnoreCase(etaScheme)) {
             return new InvscalingEtaEstimator(eta0, power_t);
         } else {
+            if (StringUtils.isNumber(etaScheme)) {
+                float eta = Float.parseFloat(etaScheme);
+                return new FixedEtaEstimator(eta);
+            }
             throw new IllegalArgumentException("Unsupported ETA name: " + etaScheme);
         }
     }

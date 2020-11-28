@@ -17,7 +17,7 @@
   under the License.
 -->
         
-[http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html#kdd2010 (bridge to algebra)](http://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html#kdd2010 (bridge to algebra))
+[https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html#kdd2010 (bridge to algebra)](https://www.csie.ntu.edu.tw/~cjlin/libsvmtools/datasets/binary.html#kdd2010 (bridge to algebra))
 
 * the number of classes: 2
 * the number of examples: 19,264,097 (training) / 748,401 (testing)
@@ -26,9 +26,6 @@
 ---
 # Define training/testing tables
 ```sql
-add jar ./tmp/hivemall.jar;
-source ./tmp/define-all.hive;
-
 create database kdd2010;
 use kdd2010;
 
@@ -50,7 +47,7 @@ STORED AS TEXTFILE LOCATION '/dataset/kdd10b/test';
 ```
 
 # Putting data into HDFS
-[conv.awk](https://raw.githubusercontent.com/myui/hivemall/master/scripts/misc/conv.awk)
+[conv.awk](https://raw.githubusercontent.com/apache/incubator-hivemall/master/resources/misc/conv.awk)
 ```sh
 awk -f conv.awk kddb | hadoop fs -put - /dataset/kdd10b/train/kddb
 awk -f conv.awk kddb.t | hadoop fs -put - /dataset/kdd10b/test/kddb.t

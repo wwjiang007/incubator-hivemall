@@ -288,6 +288,9 @@ CREATE FUNCTION build_bins as 'hivemall.ftvec.binning.BuildBinsUDAF' USING JAR '
 DROP FUNCTION IF EXISTS feature_binning;
 CREATE FUNCTION feature_binning as 'hivemall.ftvec.binning.FeatureBinningUDF' USING JAR '${hivemall_jar}';
 
+DROP FUNCTION IF EXISTS to_libsvm_format;
+CREATE FUNCTION to_libsvm_format as 'hivemall.ftvec.conv.ToLibSVMFormatUDF' USING JAR '${hivemall_jar}';
+
 --------------------------
 -- feature transformers --
 --------------------------
@@ -342,6 +345,9 @@ CREATE FUNCTION populate_not_in as 'hivemall.ftvec.ranking.PopulateNotInUDTF' US
 
 DROP FUNCTION IF EXISTS tf;
 CREATE FUNCTION tf as 'hivemall.ftvec.text.TermFrequencyUDAF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS bm25;
+CREATE FUNCTION bm25 as 'hivemall.ftvec.text.OkapiBM25UDF' USING JAR '${hivemall_jar}';
 
 --------------------------
 -- Regression functions --
@@ -413,9 +419,8 @@ CREATE FUNCTION array_concat as 'hivemall.tools.array.ArrayConcatUDF' USING JAR 
 DROP FUNCTION IF EXISTS concat_array;
 CREATE FUNCTION concat_array as 'hivemall.tools.array.ArrayConcatUDF' USING JAR '${hivemall_jar}';
 
--- alias for backward compatibility
 DROP FUNCTION IF EXISTS subarray;
-CREATE FUNCTION subarray as 'hivemall.tools.array.ArraySliceUDF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION subarray as 'hivemall.tools.array.SubarrayUDF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS array_slice;
 CREATE FUNCTION array_slice as 'hivemall.tools.array.ArraySliceUDF' USING JAR '${hivemall_jar}';
@@ -434,6 +439,45 @@ CREATE FUNCTION array_intersect as 'hivemall.tools.array.ArrayIntersectUDF' USIN
 
 DROP FUNCTION IF EXISTS select_k_best;
 CREATE FUNCTION select_k_best as 'hivemall.tools.array.SelectKBestUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS array_append;
+CREATE FUNCTION array_append as 'hivemall.tools.array.ArrayAppendUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS element_at;
+CREATE FUNCTION element_at as 'hivemall.tools.array.ArrayElementAtUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS array_union;
+CREATE FUNCTION array_union as 'hivemall.tools.array.ArrayUnionUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS first_element;
+CREATE FUNCTION first_element as 'hivemall.tools.array.FirstElementUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS last_element;
+CREATE FUNCTION last_element as 'hivemall.tools.array.LastElementUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS array_flatten;
+CREATE FUNCTION array_flatten as 'hivemall.tools.array.ArrayFlattenUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS array_to_str;
+CREATE FUNCTION array_to_str as 'hivemall.tools.array.ArrayToStrUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS conditional_emit;
+CREATE FUNCTION conditional_emit as 'hivemall.tools.array.ConditionalEmitUDTF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS argmin;
+CREATE FUNCTION argmin as 'hivemall.tools.array.ArgminUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS argmax;
+CREATE FUNCTION argmax as 'hivemall.tools.array.ArgmaxUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS arange;
+CREATE FUNCTION arange as 'hivemall.tools.array.ArangeUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS argrank;
+CREATE FUNCTION argrank as 'hivemall.tools.array.ArgrankUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS argsort;
+CREATE FUNCTION argsort as 'hivemall.tools.array.ArgsortUDF' USING JAR '${hivemall_jar}';
 
 -----------------------------
 -- bit operation functions --
@@ -477,6 +521,21 @@ CREATE FUNCTION to_map as 'hivemall.tools.map.UDAFToMap' USING JAR '${hivemall_j
 DROP FUNCTION IF EXISTS to_ordered_map;
 CREATE FUNCTION to_ordered_map as 'hivemall.tools.map.UDAFToOrderedMap' USING JAR '${hivemall_jar}';
 
+DROP FUNCTION IF EXISTS map_include_keys;
+CREATE FUNCTION map_include_keys as 'hivemall.tools.map.MapIncludeKeysUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS map_exclude_keys;
+CREATE FUNCTION map_exclude_keys as 'hivemall.tools.map.MapExcludeKeysUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS map_get;
+CREATE FUNCTION map_get as 'hivemall.tools.map.MapGetUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS map_key_values;
+CREATE FUNCTION map_key_values as 'hivemall.tools.map.MapKeyValuesUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS map_roulette;
+CREATE FUNCTION map_roulette as 'hivemall.tools.map.MapRouletteUDF' USING JAR '${hivemall_jar}';
+
 ---------------------
 -- list functions --
 ---------------------
@@ -494,12 +553,33 @@ CREATE FUNCTION sigmoid as 'hivemall.tools.math.SigmoidGenericUDF' USING JAR '${
 DROP FUNCTION IF EXISTS l2_norm;
 CREATE FUNCTION l2_norm as 'hivemall.tools.math.L2NormUDAF' USING JAR '${hivemall_jar}';
 
-----------------------
--- Matrix functions --
-----------------------
+DROP FUNCTION IF EXISTS infinity;
+CREATE FUNCTION infinity as 'hivemall.tools.math.InfinityUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS is_infinite;
+CREATE FUNCTION is_infinite as 'hivemall.tools.math.IsInfiniteUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS is_finite;
+CREATE FUNCTION is_finite as 'hivemall.tools.math.IsFiniteUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS nan;
+CREATE FUNCTION nan as 'hivemall.tools.math.NanUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS is_nan;
+CREATE FUNCTION is_nan as 'hivemall.tools.math.IsNanUDF' USING JAR '${hivemall_jar}';
+
+-----------------------------
+-- Matrix/Vector functions --
+-----------------------------
 
 DROP FUNCTION IF EXISTS transpose_and_dot;
 CREATE FUNCTION transpose_and_dot as 'hivemall.tools.matrix.TransposeAndDotUDAF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS vector_add;
+CREATE FUNCTION vector_add as 'hivemall.tools.vector.VectorAddUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS vector_dot;
+CREATE FUNCTION vector_dot as 'hivemall.tools.vector.VectorDotUDF' USING JAR '${hivemall_jar}';
 
 ----------------------
 -- mapred functions --
@@ -524,6 +604,26 @@ DROP FUNCTION IF EXISTS jobconf_gets;
 CREATE FUNCTION jobconf_gets as 'hivemall.tools.mapred.JobConfGetsUDF' USING JAR '${hivemall_jar}';
 
 --------------------
+-- JSON functions --
+--------------------
+
+DROP FUNCTION IF EXISTS to_json;
+CREATE FUNCTION to_json as 'hivemall.tools.json.ToJsonUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS from_json;
+CREATE FUNCTION from_json as 'hivemall.tools.json.FromJsonUDF' USING JAR '${hivemall_jar}';
+
+----------------------------
+-- Sanity Check functions --
+----------------------------
+
+DROP FUNCTION IF EXISTS assert;
+CREATE FUNCTION assert as 'hivemall.tools.sanity.AssertUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS raise_error;
+CREATE FUNCTION raise_error as 'hivemall.tools.sanity.RaiseErrorUDF' USING JAR '${hivemall_jar}';
+
+--------------------
 -- misc functions --
 --------------------
 
@@ -538,6 +638,15 @@ CREATE FUNCTION x_rank as 'hivemall.tools.RankSequenceUDF' USING JAR '${hivemall
 
 DROP FUNCTION IF EXISTS each_top_k;
 CREATE FUNCTION each_top_k as 'hivemall.tools.EachTopKUDTF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS try_cast;
+CREATE FUNCTION try_cast as 'hivemall.tools.TryCastUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS sessionize;
+CREATE FUNCTION sessionize as 'hivemall.tools.datetime.SessionizeUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS moving_avg;
+CREATE FUNCTION moving_avg as 'hivemall.tools.timeseries.MovingAverageUDTF' USING JAR '${hivemall_jar}';
 
 -------------------------------
 -- Text processing functions --
@@ -566,6 +675,9 @@ CREATE FUNCTION unbase91 as 'hivemall.tools.text.Unbase91UDF' USING JAR '${hivem
 
 DROP FUNCTION IF EXISTS word_ngrams;
 CREATE FUNCTION word_ngrams as 'hivemall.tools.text.WordNgramsUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS str_contains;
+CREATE FUNCTION str_contains as 'hivemall.tools.strings.StrContainsUDF' USING JAR '${hivemall_jar}';
 
 ---------------------------------
 -- Dataset generator functions --
@@ -625,35 +737,35 @@ CREATE FUNCTION logloss as 'hivemall.evaluation.LogarithmicLossUDAF' USING JAR '
 --------------------------
 
 DROP FUNCTION IF EXISTS mf_predict;
-CREATE FUNCTION mf_predict as 'hivemall.mf.MFPredictionUDF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION mf_predict as 'hivemall.factorization.mf.MFPredictionUDF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS train_mf_sgd;
-CREATE FUNCTION train_mf_sgd as 'hivemall.mf.MatrixFactorizationSGDUDTF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION train_mf_sgd as 'hivemall.factorization.mf.MatrixFactorizationSGDUDTF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS train_mf_adagrad;
-CREATE FUNCTION train_mf_adagrad as 'hivemall.mf.MatrixFactorizationAdaGradUDTF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION train_mf_adagrad as 'hivemall.factorization.mf.MatrixFactorizationAdaGradUDTF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS train_bprmf;
-CREATE FUNCTION train_bprmf as 'hivemall.mf.BPRMatrixFactorizationUDTF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION train_bprmf as 'hivemall.factorization.mf.BPRMatrixFactorizationUDTF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS bprmf_predict;
-CREATE FUNCTION bprmf_predict as 'hivemall.mf.BPRMFPredictionUDF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION bprmf_predict as 'hivemall.factorization.mf.BPRMFPredictionUDF' USING JAR '${hivemall_jar}';
 
 ---------------------------
 -- Factorization Machine --
 ---------------------------
 
 DROP FUNCTION IF EXISTS fm_predict;
-CREATE FUNCTION fm_predict as 'hivemall.fm.FMPredictGenericUDAF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION fm_predict as 'hivemall.factorization.fm.FMPredictGenericUDAF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS train_fm;
-CREATE FUNCTION train_fm as 'hivemall.fm.FactorizationMachineUDTF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION train_fm as 'hivemall.factorization.fm.FactorizationMachineUDTF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS train_ffm;
-CREATE FUNCTION train_ffm as 'hivemall.fm.FieldAwareFactorizationMachineUDTF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION train_ffm as 'hivemall.factorization.fm.FieldAwareFactorizationMachineUDTF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION IF EXISTS ffm_predict;
-CREATE FUNCTION ffm_predict as 'hivemall.fm.FFMPredictGenericUDAF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION ffm_predict as 'hivemall.factorization.fm.FFMPredictGenericUDAF' USING JAR '${hivemall_jar}';
 
 ---------------------------
 -- Anomaly Detection ------
@@ -735,6 +847,9 @@ CREATE FUNCTION rf_ensemble as 'hivemall.smile.tools.RandomForestEnsembleUDAF' U
 DROP FUNCTION IF EXISTS guess_attribute_types;
 CREATE FUNCTION guess_attribute_types as 'hivemall.smile.tools.GuessAttributesUDF' USING JAR '${hivemall_jar}';
 
+DROP FUNCTION IF EXISTS decision_path;
+CREATE FUNCTION decision_path as 'hivemall.smile.tools.DecisionPathUDF' USING JAR '${hivemall_jar}';
+
 --------------------
 -- Recommendation --
 --------------------
@@ -749,21 +864,59 @@ CREATE FUNCTION train_slim as 'hivemall.recommend.SlimUDTF' USING JAR '${hivemal
 DROP FUNCTION IF EXISTS approx_count_distinct;
 CREATE FUNCTION approx_count_distinct as 'hivemall.sketch.hll.ApproxCountDistinctUDAF' USING JAR '${hivemall_jar}';
 
+------------------
+-- Bloom Filter --
+------------------
+
+DROP FUNCTION IF EXISTS bloom;
+CREATE FUNCTION bloom as 'hivemall.sketch.bloom.BloomFilterUDAF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS bloom_and;
+CREATE FUNCTION bloom_and as 'hivemall.sketch.bloom.BloomAndUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS bloom_contains;
+CREATE FUNCTION bloom_contains as 'hivemall.sketch.bloom.BloomContainsUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS bloom_not;
+CREATE FUNCTION bloom_not as 'hivemall.sketch.bloom.BloomNotUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS bloom_or;
+CREATE FUNCTION bloom_or as 'hivemall.sketch.bloom.BloomOrUDF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS bloom_contains_any;
+CREATE FUNCTION bloom_contains_any as 'hivemall.sketch.bloom.BloomContainsAnyUDF' USING JAR '${hivemall_jar}';
+
+-----------------
+-- Aggregation --
+-----------------
+
+DROP FUNCTION IF EXISTS max_by;
+CREATE FUNCTION max_by as 'hivemall.tools.aggr.MaxByUDAF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS min_by;
+CREATE FUNCTION min_by as 'hivemall.tools.aggr.MinByUDAF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION IF EXISTS majority_vote;
+CREATE FUNCTION majority_vote as 'hivemall.tools.aggr.MajorityVoteUDAF' USING JAR '${hivemall_jar}';
+
 ------------------------------
 -- XGBoost related features --
 ------------------------------
 
-DROP FUNCTION train_xgboost_regr;
-CREATE FUNCTION train_xgboost_regr AS 'hivemall.xgboost.regression.XGBoostRegressionUDTF' USING JAR '${hivemall_jar}';
+DROP FUNCTION IF EXISTS xgboost_version;
+CREATE FUNCTION xgboost_version as 'hivemall.xgboost.XGBoostVersionUDF' USING JAR '${hivemall_jar}';
 
-DROP FUNCTION train_xgboost_classifier;
-CREATE FUNCTION train_xgboost_classifier AS 'hivemall.xgboost.classification.XGBoostBinaryClassifierUDTF' USING JAR '${hivemall_jar}';
-
-DROP FUNCTION train_multiclass_xgboost_classifier;
-CREATE FUNCTION train_multiclass_xgboost_classifier AS 'hivemall.xgboost.classification.XGBoostMulticlassClassifierUDTF' USING JAR '${hivemall_jar}';
+DROP FUNCTION train_xgboost;
+CREATE FUNCTION train_xgboost AS 'hivemall.xgboost.XGBoostTrainUDTF' USING JAR '${hivemall_jar}';
 
 DROP FUNCTION xgboost_predict;
-CREATE FUNCTION xgboost_predict AS 'hivemall.xgboost.tools.XGBoostPredictUDTF' USING JAR '${hivemall_jar}';
+CREATE FUNCTION xgboost_predict AS 'hivemall.xgboost.XGBoostOnlinePredictUDTF' USING JAR '${hivemall_jar}';
 
-DROP FUNCTION xgboost_multiclass_predict;
-CREATE FUNCTION xgboost_multiclass_predict AS 'hivemall.xgboost.tools.XGBoostMulticlassPredictUDTF' USING JAR '${hivemall_jar}';
+DROP FUNCTION xgboost_batch_predict;
+CREATE FUNCTION xgboost_batch_predict AS 'hivemall.xgboost.XGBoostBatchPredictUDTF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION xgboost_predict_one;
+CREATE FUNCTION xgboost_predict_one AS 'hivemall.xgboost.XGBoostPredictOneUDTF' USING JAR '${hivemall_jar}';
+
+DROP FUNCTION xgboost_predict_triple;
+CREATE FUNCTION xgboost_predict_triple AS 'hivemall.xgboost.XGBoostPredictTripleUDTF' USING JAR '${hivemall_jar}';

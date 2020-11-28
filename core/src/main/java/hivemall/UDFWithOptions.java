@@ -86,30 +86,84 @@ public abstract class UDFWithOptions extends GenericUDF {
         String[] args = optionValue.split("\\s+");
         Options opts = getOptions();
         opts.addOption("help", false, "Show function help");
-        CommandLine cl = CommandLineUtils.parseOptions(args, opts);
+
+        final CommandLine cl;
+        try {
+            cl = CommandLineUtils.parseOptions(args, opts);
+        } catch (IllegalArgumentException e) {
+            throw new UDFArgumentException(e);
+        }
 
         if (cl.hasOption("help")) {
-            Description funcDesc = getClass().getAnnotation(Description.class);
-            final String cmdLineSyntax;
-            if (funcDesc == null) {
-                cmdLineSyntax = getClass().getSimpleName();
-            } else {
-                String funcName = funcDesc.name();
-                cmdLineSyntax = funcName == null ? getClass().getSimpleName()
-                        : funcDesc.value().replace("_FUNC_", funcDesc.name());
-            }
-            StringWriter sw = new StringWriter();
-            sw.write('\n');
-            PrintWriter pw = new PrintWriter(sw);
-            HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp(pw, HelpFormatter.DEFAULT_WIDTH, cmdLineSyntax, null, opts,
-                HelpFormatter.DEFAULT_LEFT_PAD, HelpFormatter.DEFAULT_DESC_PAD, null, true);
-            pw.flush();
-            String helpMsg = sw.toString();
-            throw new UDFArgumentException(helpMsg);
+            showHelp(opts);
         }
 
         return cl;
+    }
+
+    protected void showHelp() throws UDFArgumentException {
+        showHelp(getOptions(), null);
+    }
+
+    protected void showHelp(@Nullable String errMsg) throws UDFArgumentException {
+        showHelp(getOptions(), errMsg);
+    }
+
+    private void showHelp(@Nonnull Options opts) throws UDFArgumentException {
+        showHelp(opts, null);
+    }
+
+    private void showHelp(@Nonnull Options opts, @Nullable String errMsg)
+            throws UDFArgumentException {
+        Description funcDesc = getClass().getAnnotation(Description.class);
+        final String cmdLineSyntax;
+        if (funcDesc == null) {
+            cmdLineSyntax = getClass().getSimpleName();
+        } else {
+            String funcName = funcDesc.name();
+            cmdLineSyntax = funcName == null ? getClass().getSimpleName()
+                    : funcDesc.value().replace("_FUNC_", funcDesc.name());
+        }
+        StringWriter sw = new StringWriter();
+        sw.write('\n');
+        if (errMsg != null) {
+            if (funcDesc != null && funcDesc.name() != null) {
+                errMsg = errMsg.replace("_FUNC_", funcDesc.name());
+            }
+            sw.write(errMsg);
+            sw.write("\n\n");
+        }
+        PrintWriter pw = new PrintWriter(sw);
+        HelpFormatter formatter = new HelpFormatter();
+        formatter.printHelp(pw, HelpFormatter.DEFAULT_WIDTH, cmdLineSyntax, null, opts,
+            HelpFormatter.DEFAULT_LEFT_PAD, HelpFormatter.DEFAULT_DESC_PAD, null, true);
+        pw.flush();
+        String helpMsg = sw.toString();
+        throw new UDFArgumentException(helpMsg);
+    }
+
+    /**
+     * Raise {@link UDFArgumentException} if the given condition is false.
+     *
+     * @throws UDFArgumentException
+     */
+    protected static void assumeTrue(final boolean condition, @Nonnull final String errMsg)
+            throws UDFArgumentException {
+        if (!condition) {
+            throw new UDFArgumentException(errMsg);
+        }
+    }
+
+    /**
+     * Raise {@link UDFArgumentException} if the given condition is true.
+     *
+     * @throws UDFArgumentException
+     */
+    protected static void assumeFalse(final boolean condition, @Nonnull final String errMsg)
+            throws UDFArgumentException {
+        if (condition) {
+            throw new UDFArgumentException(errMsg);
+        }
     }
 
     @Nonnull

@@ -22,6 +22,7 @@ import static org.apache.hadoop.hive.ql.util.JavaDataModel.JAVA64_ARRAY_META;
 import static org.apache.hadoop.hive.ql.util.JavaDataModel.JAVA64_REF;
 import static org.apache.hadoop.hive.ql.util.JavaDataModel.PRIMITIVES1;
 import static org.apache.hadoop.hive.ql.util.JavaDataModel.PRIMITIVES2;
+
 import hivemall.utils.hadoop.HiveUtils;
 import hivemall.utils.hadoop.WritableUtils;
 
@@ -39,6 +40,7 @@ import org.apache.hadoop.hive.ql.udf.generic.AbstractGenericUDAFResolver;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFEvaluator;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFEvaluator.AbstractAggregationBuffer;
 import org.apache.hadoop.hive.ql.udf.generic.GenericUDAFEvaluator.AggregationType;
+import org.apache.hadoop.hive.serde2.io.DoubleWritable;
 import org.apache.hadoop.hive.serde2.lazybinary.LazyBinaryArray;
 import org.apache.hadoop.hive.serde2.objectinspector.ListObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -54,11 +56,24 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableDoubleObj
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableIntObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.WritableLongObjectInspector;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
-import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.IntWritable;
 
+// @formatter:off
 @Description(name = "array_avg", value = "_FUNC_(array<number>) - Returns an array<double>"
-        + " in which each element is the mean of a set of numbers")
+        + " in which each element is the mean of a set of numbers",
+        extended = "WITH input as (\n" + 
+                "  select array(1.0, 2.0, 3.0) as nums\n" + 
+                "  UNION ALL\n" + 
+                "  select array(2.0, 3.0, 4.0) as nums\n" + 
+                ")\n" + 
+                "select\n" + 
+                "  array_avg(nums)\n" + 
+                "from\n" + 
+                "  input;\n" + 
+                "\n" + 
+                "[\"1.5\",\"2.5\",\"3.5\"]"
+        )
+// @formatter:on
 public final class ArrayAvgGenericUDAF extends AbstractGenericUDAFResolver {
 
     @Override
@@ -115,7 +130,7 @@ public final class ArrayAvgGenericUDAF extends AbstractGenericUDAFResolver {
                 outputOI = internalMergeOI();
             } else {// terminate
                 outputOI = ObjectInspectorFactory.getStandardListObjectInspector(
-                    PrimitiveObjectInspectorFactory.writableFloatObjectInspector);
+                    PrimitiveObjectInspectorFactory.writableDoubleObjectInspector);
             }
             return outputOI;
         }
@@ -207,7 +222,7 @@ public final class ArrayAvgGenericUDAF extends AbstractGenericUDAFResolver {
         }
 
         @Override
-        public List<FloatWritable> terminate(
+        public List<DoubleWritable> terminate(
                 @SuppressWarnings("deprecation") AggregationBuffer aggr) throws HiveException {
             ArrayAvgAggregationBuffer myAggr = (ArrayAvgAggregationBuffer) aggr;
 
@@ -219,11 +234,11 @@ public final class ArrayAvgGenericUDAF extends AbstractGenericUDAFResolver {
             final double[] sum = myAggr._sum;
             final long[] count = myAggr._count;
 
-            final FloatWritable[] ary = new FloatWritable[size];
+            final DoubleWritable[] ary = new DoubleWritable[size];
             for (int i = 0; i < size; i++) {
                 long c = count[i];
                 float avg = (c == 0) ? 0.f : (float) (sum[i] / c);
-                ary[i] = new FloatWritable(avg);
+                ary[i] = new DoubleWritable(avg);
             }
             return Arrays.asList(ary);
         }

@@ -19,9 +19,9 @@
 package hivemall.smile.tools;
 
 import hivemall.UDFWithOptions;
-import hivemall.math.vector.DenseVector;
-import hivemall.math.vector.SparseVector;
-import hivemall.math.vector.Vector;
+import matrix4j.vector.DenseVector;
+import matrix4j.vector.SparseVector;
+import matrix4j.vector.Vector;
 import hivemall.smile.classification.DecisionTree;
 import hivemall.smile.classification.PredictionHandler;
 import hivemall.smile.regression.RegressionTree;
@@ -92,11 +92,11 @@ public final class TreePredictUDF extends UDFWithOptions {
     @Override
     public ObjectInspector initialize(ObjectInspector[] argOIs) throws UDFArgumentException {
         if (argOIs.length != 3 && argOIs.length != 4) {
-            throw new UDFArgumentException("tree_predict takes 3 or 4 arguments");
+            showHelp("tree_predict takes 3 or 4 arguments");
         }
 
-        this.modelOI = HiveUtils.asStringOI(argOIs[1]);
-        ListObjectInspector listOI = HiveUtils.asListOI(argOIs[2]);
+        this.modelOI = HiveUtils.asStringOI(argOIs, 1);
+        ListObjectInspector listOI = HiveUtils.asListOI(argOIs, 2);
         this.featureListOI = listOI;
         ObjectInspector elemOI = listOI.getListElementObjectInspector();
         if (HiveUtils.isNumberOI(elemOI)) {
@@ -158,7 +158,7 @@ public final class TreePredictUDF extends UDFWithOptions {
 
         Object arg2 = arguments[2].get();
         if (arg2 == null) {
-            throw new HiveException("array<double> features was null");
+            throw new HiveException("features was null");
         }
         this.featuresProbe = parseFeatures(arg2, featuresProbe);
 
@@ -284,7 +284,7 @@ public final class TreePredictUDF extends UDFWithOptions {
             Arrays.fill(result, null);
             Preconditions.checkNotNull(cNode);
             cNode.predict(features, new PredictionHandler() {
-                public void handle(int output, double[] posteriori) {
+                public void visitLeaf(int output, double[] posteriori) {
                     result[0] = new IntWritable(output);
                     result[1] = WritableUtils.toWritableList(posteriori);
                 }

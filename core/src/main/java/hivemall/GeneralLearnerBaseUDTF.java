@@ -18,6 +18,8 @@
  */
 package hivemall;
 
+import static hivemall.utils.collections.CollectionUtils.countNonNulls;
+
 import hivemall.annotations.VisibleForTesting;
 import hivemall.common.ConversionState;
 import hivemall.model.FeatureValue;
@@ -76,6 +78,8 @@ import org.apache.hadoop.mapred.Reporter;
 
 public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
     private static final Log logger = LogFactory.getLog(GeneralLearnerBaseUDTF.class);
+    private static final float MAX_DLOSS = 1e+12f;
+    private static final float MIN_DLOSS = -1e+12f;
 
     private ListObjectInspector featureListOI;
     private PrimitiveObjectInspector targetOI;
@@ -139,12 +143,12 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
     @Override
     public StructObjectInspector initialize(ObjectInspector[] argOIs) throws UDFArgumentException {
         if (argOIs.length < 2) {
-            throw new UDFArgumentException(
-                "_FUNC_ takes 2 arguments: List<Int|BigInt|Text> features, float target [, constant string options]");
+            showHelp(
+                "_FUNC_ takes two or three arguments: List<Int|BigInt|Text> features, float target [, constant string options]");
         }
-        this.featureListOI = HiveUtils.asListOI(argOIs[0]);
+        this.featureListOI = HiveUtils.asListOI(argOIs, 0);
         this.featureType = getFeatureType(featureListOI);
-        this.targetOI = HiveUtils.asDoubleCompatibleOI(argOIs[1]);
+        this.targetOI = HiveUtils.asDoubleCompatibleOI(argOIs, 1);
 
         processOptions(argOIs);
 
@@ -165,8 +169,11 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
     @Override
     protected Options getOptions() {
         Options opts = super.getOptions();
+        opts.addOption("inspect_opts", false, "Inspect Optimizer options");
         opts.addOption("loss", "loss_function", true, getLossOptionDescription());
         opts.addOption("iter", "iterations", true,
+            "The maximum number of iterations [default: 10]");
+        opts.addOption("iters", "iterations", true,
             "The maximum number of iterations [default: 10]");
         // conversion check
         opts.addOption("disable_cv", "disable_cvtest", false,
@@ -212,6 +219,17 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
         this.cvState = new ConversionState(conversionCheck, convergenceRate);
 
         OptimizerOptions.processOptions(cl, optimizerOptions);
+
+        if (cl != null && cl.hasOption("inspect_opts")) {
+            Optimizer optimizer = createOptimizer(optimizerOptions);
+            Map<String, Object> params = optimizer.getHyperParameters();
+            params.put("loss_function", lossFunction.getType().toString());
+            params.put("iterations", iterations);
+            params.put("disable_cvtest", conversionCheck ? false : true);
+            params.put("cv_rate", convergenceRate);
+            throw new UDFArgumentException(
+                String.format("Inspected Optimizer options ...\n%s", params.toString()));
+        }
 
         return cl;
     }
@@ -323,7 +341,7 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
             } catch (Throwable e) {
                 throw new UDFArgumentException(e);
             }
-            this.inputBuf = buf = ByteBuffer.allocateDirect(1024 * 1024); // 1 MB
+            this.inputBuf = buf = ByteBuffer.allocateDirect(2 * 1024 * 1024); // 2 MB
             this.fileIO = dst = new NioStatefulSegment(file, false);
         }
 
@@ -351,6 +369,10 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
         int remain = buf.remaining();
         if (remain < requiredBytes) {
             writeBuffer(buf, dst);
+        }
+        if (requiredBytes > buf.remaining()) {
+            throw new HiveException("Buffer size (2MB) for writing training example is not enough: "
+                    + NumberUtils.prettySize(requiredBytes));
         }
 
         buf.putInt(recordBytes);
@@ -398,8 +420,8 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
         }
 
         final ObjectInspector featureInspector = featureListOI.getListElementObjectInspector();
-        final FeatureValue[] featureVector = new FeatureValue[size];
-        for (int i = 0; i < size; i++) {
+        final FeatureValue[] featureVector = new FeatureValue[countNonNulls(features)];
+        for (int i = 0, j = 0; i < size; i++) {
             Object f = features.get(i);
             if (f == null) {
                 continue;
@@ -413,7 +435,7 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
                     ObjectInspectorCopyOption.JAVA); // should be Integer or Long
                 fv = new FeatureValue(k, 1.f);
             }
-            featureVector[i] = fv;
+            featureVector[j++] = fv;
         }
         return featureVector;
     }
@@ -448,30 +470,41 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
 
     protected void update(@Nonnull final FeatureValue[] features, final float target,
             final float predicted) {
+        optimizer.proceedStep();
+
         float loss = lossFunction.loss(predicted, target);
         cvState.incrLoss(loss); // retain cumulative loss to check convergence
 
-        final float dloss = lossFunction.dloss(predicted, target);
-        if (is_mini_batch) {
-            accumulateUpdate(features, dloss);
+        float dloss = lossFunction.dloss(predicted, target);
+        if (dloss == 0.f) {
+            return;
+        }
+        if (dloss < MIN_DLOSS) {
+            dloss = MIN_DLOSS;
+        } else if (dloss > MAX_DLOSS) {
+            dloss = MAX_DLOSS;
+        }
 
+        if (is_mini_batch) {
+            accumulateUpdate(features, loss, dloss);
             if (sampled >= mini_batch_size) {
                 batchUpdate();
             }
         } else {
-            onlineUpdate(features, dloss);
+            onlineUpdate(features, loss, dloss);
         }
-        optimizer.proceedStep();
     }
 
-    protected void accumulateUpdate(@Nonnull final FeatureValue[] features, final float dloss) {
+    protected void accumulateUpdate(@Nonnull final FeatureValue[] features, final float loss,
+            final float dloss) {
         for (FeatureValue f : features) {
             Object feature = f.getFeature();
             float xi = f.getValueAsFloat();
             float weight = model.getWeight(feature);
 
             // compute new weight, but still not set to the model
-            float new_weight = optimizer.update(feature, weight, dloss * xi);
+            float gradient = dloss * xi;
+            float new_weight = optimizer.update(feature, weight, loss, gradient);
 
             // (w_i - eta * delta_1) + (w_i - eta * delta_2) + ... + (w_i - eta * delta_M)
             FloatAccumulator acc = accumulated.get(feature);
@@ -494,7 +527,11 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
         for (Map.Entry<Object, FloatAccumulator> e : accumulated.entrySet()) {
             Object feature = e.getKey();
             FloatAccumulator v = e.getValue();
-            float new_weight = v.get(); // w_i - (eta / M) * (delta_1 + delta_2 + ... + delta_M)
+            final float new_weight = v.get(); // w_i - (eta / M) * (delta_1 + delta_2 + ... + delta_M)
+            if (new_weight == 0.f) {
+                model.delete(feature);
+                continue;
+            }
             model.setWeight(feature, new_weight);
         }
 
@@ -502,12 +539,18 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
         this.sampled = 0;
     }
 
-    protected void onlineUpdate(@Nonnull final FeatureValue[] features, final float dloss) {
+    protected void onlineUpdate(@Nonnull final FeatureValue[] features, final float loss,
+            final float dloss) {
         for (FeatureValue f : features) {
             Object feature = f.getFeature();
             float xi = f.getValueAsFloat();
             float weight = model.getWeight(feature);
-            float new_weight = optimizer.update(feature, weight, dloss * xi);
+            float gradient = dloss * xi;
+            final float new_weight = optimizer.update(feature, weight, loss, gradient);
+            if (new_weight == 0.f) {
+                model.delete(feature);
+                continue;
+            }
             model.setWeight(feature, new_weight);
         }
     }
@@ -524,7 +567,6 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
     @VisibleForTesting
     public void finalizeTraining() throws HiveException {
         if (count == 0L) {
-            this.model = null;
             return;
         }
         if (is_mini_batch) { // Update model with accumulated delta
@@ -701,9 +743,14 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
                 if (!probe.isTouched()) {
                     continue; // skip outputting untouched weights
                 }
+                final float v = probe.get();
+                final float cv = probe.getCovariance();
+                if (v == 0.f && cv == 0.f) {
+                    continue;
+                }
+                fv.set(v);
+                cov.set(cv);
                 Object k = itor.getKey();
-                fv.set(probe.get());
-                cov.set(probe.getCovariance());
                 forwardMapObj[0] = k;
                 forwardMapObj[1] = fv;
                 forwardMapObj[2] = cov;
@@ -720,8 +767,12 @@ public abstract class GeneralLearnerBaseUDTF extends LearnerBaseUDTF {
                 if (!probe.isTouched()) {
                     continue; // skip outputting untouched weights
                 }
+                final float v = probe.get();
+                if (v == 0.f) {
+                    continue;
+                }
+                fv.set(v);
                 Object k = itor.getKey();
-                fv.set(probe.get());
                 forwardMapObj[0] = k;
                 forwardMapObj[1] = fv;
                 forward(forwardMapObj);

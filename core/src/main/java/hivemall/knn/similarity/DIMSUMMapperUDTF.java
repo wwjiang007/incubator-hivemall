@@ -19,13 +19,13 @@
 package hivemall.knn.similarity;
 
 import hivemall.UDTFWithOptions;
-import hivemall.fm.Feature;
-import hivemall.fm.IntFeature;
-import hivemall.fm.StringFeature;
-import hivemall.math.random.PRNG;
-import hivemall.math.random.RandomNumberGeneratorFactory;
+import hivemall.factorization.fm.Feature;
+import hivemall.factorization.fm.IntFeature;
+import hivemall.factorization.fm.StringFeature;
 import hivemall.utils.hadoop.HiveUtils;
 import hivemall.utils.lang.Primitives;
+import hivemall.utils.random.PRNG;
+import hivemall.utils.random.RandomNumberGeneratorFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;

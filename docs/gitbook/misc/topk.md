@@ -33,7 +33,7 @@ This function is particularly useful for applying a similarity/distance function
 * The third argument `value` is used for the comparison.
 * `Any number types` or `timestamp` are accepted for the type of `value`.
 * If k is less than 0, reverse order is used and `tail-K` records are returned for each `group`.
-* Note that this function returns [a pseudo ranking](http://www.michaelpollmeier.com/selecting-top-k-items-from-a-list-efficiently-in-java-groovy/) for top-k. It always returns `at-most K` records for each group. The ranking scheme is similar to `dense_rank` but slightly different in certain cases.
+* Note that this function returns [a pseudo ranking](https://www.michaelpollmeier.com/selecting-top-k-items-from-a-list-efficiently-in-java-groovy/) for top-k. It always returns `at-most K` records for each group. The ranking scheme is similar to `dense_rank` but slightly different in certain cases.
 
 # Usage
 
@@ -83,7 +83,7 @@ An alternative and efficient way to compute top-k items using `each_top_k` is as
 SELECT 
   each_top_k(
     2, class, score,
-    class, student -- output columns other in addition to rank and score
+    class, student -- output other columns in addition to rank and score
   ) as (rank, score, class, student)
 FROM (
   SELECT * FROM table
@@ -93,7 +93,7 @@ FROM (
 
 > #### Note
 >
-> `CLUSTER BY x` is a synonym of `DISTRIBUTE BY x CLASS SORT BY x` and required when using `each_top_k`.
+> `CLUSTER BY x` is a synonym of `DISTRIBUTE BY x SORT BY x` and required when using `each_top_k`.
 
 The function signature of `each_top_k` is `each_top_k(int k, ANY group, double value, arg1, arg2, ..., argN)` and it returns a relation `(int rank, double value, arg1, arg2, .., argN)`.
 
@@ -110,7 +110,7 @@ The ranking semantics of `each_top_k` follows SQL's `dense_rank` and then limits
 
 ## top-k clicks 
 
-http://stackoverflow.com/questions/9390698/hive-getting-top-n-records-in-group-by-query/32559050#32559050
+https://stackoverflow.com/questions/9390698/hive-getting-top-n-records-in-group-by-query/32559050#32559050
 
 ```sql
 set hivevar:k=5;

@@ -34,6 +34,10 @@ public abstract class Regularization {
         this.lambda = Primitives.parseFloat(options.get("lambda"), DEFAULT_LAMBDA);
     }
 
+    public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+        hyperParams.put("lambda", lambda);
+    }
+
     public float regularize(final float weight, final float gradient) {
         return gradient + lambda * getRegularizer(weight);
     }
@@ -51,6 +55,16 @@ public abstract class Regularization {
             return 0.f;
         }
 
+        @Override
+        public float regularize(final float weight, final float gradient) {
+            return gradient;
+        }
+
+        @Override
+        public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+            super.getHyperParameters(hyperParams);
+            hyperParams.put("regularization", "no");
+        }
     }
 
     public static final class L1 extends Regularization {
@@ -64,6 +78,11 @@ public abstract class Regularization {
             return weight > 0.f ? 1.f : -1.f;
         }
 
+        @Override
+        public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+            super.getHyperParameters(hyperParams);
+            hyperParams.put("regularization", "L1");
+        }
     }
 
     public static final class L2 extends Regularization {
@@ -77,6 +96,11 @@ public abstract class Regularization {
             return weight;
         }
 
+        @Override
+        public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+            super.getHyperParameters(hyperParams);
+            hyperParams.put("regularization", "L2");
+        }
     }
 
     public static final class ElasticNet extends Regularization {
@@ -106,6 +130,13 @@ public abstract class Regularization {
         public float getRegularizer(final float weight) {
             return l1Ratio * l1.getRegularizer(weight)
                     + (1.f - l1Ratio) * l2.getRegularizer(weight);
+        }
+
+        @Override
+        public void getHyperParameters(@Nonnull Map<String, Object> hyperParams) {
+            super.getHyperParameters(hyperParams);
+            hyperParams.put("regularization", "ElasticNet");
+            hyperParams.put("l1_ratio", l1Ratio);
         }
     }
 
